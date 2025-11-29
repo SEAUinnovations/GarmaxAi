@@ -1,0 +1,77 @@
+import type { Server } from "node:http";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import { registerRoutes } from "./routes";
+import { logger } from "./utils/winston-logger";
+
+export const app = express();
+
+declare module "http" {
+  interface IncomingMessage {
+    rawBody?: unknown;
+  }
+}
+
+// Middleware: Parse JSON with raw body preservation
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  },
+}));
+app.use(express.urlencoded({ extended: false }));
+
+// Middleware: Request logging
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const start = Date.now();
+  let capturedResponse: Record<string, unknown> | undefined;
+
+  const originalJson = res.json;
+  res.json = function (body, ...args) {
+    capturedResponse = body;
+    return originalJson.apply(res, [body, ...args]);
+  };
+
+  res.on("finish", () => {
+    if (!req.path.startsWith("/api")) return;
+
+    const duration = Date.now() - start;
+    let logLine = `${req.method} ${req.path} ${res.statusCode} in ${duration}ms`;
+
+    if (capturedResponse) {
+      logLine += ` :: ${JSON.stringify(capturedResponse)}`;
+    }
+
+    // Truncate long log lines
+    if (logLine.length > 80) {
+      logLine = logLine.slice(0, 79) + "…";
+    }
+
+    logger.info(logLine);
+  });
+
+  next();
+});
+
+export default async function runApp(
+  setup: (app: Express, server: Server) => Promise<void>,
+): Promise<void> {
+  const server = await registerRoutes(app);
+
+  // Error handling middleware (must be last before setup)
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    const errObj = err as Record<string, unknown>;
+    const status = typeof errObj.status === "number" ? errObj.status : 
+                   typeof errObj.statusCode === "number" ? errObj.statusCode : 500;
+    const message = typeof errObj.message === "string" ? errObj.message : "Internal Server Error";
+    res.status(status).json({ message });
+    throw err;
+  });
+
+  // Setup routes after all other middleware
+  await setup(app, server);
+
+  // Start server
+  const port = parseInt(process.env.PORT || "5000", 10);
+  server.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
+    logger.info(`serving on port ${port}`);
+  });
+}
