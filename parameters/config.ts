@@ -1,7 +1,12 @@
 export const env: {
   hostedZoneName: string;
   hostedZoneId: string;
+  frontendDomainName?: string;
+  backendDomainName?: string;
+  backendHostedZoneName?: string;
+  backendHostedZoneId?: string;
   AcmCert: { [region: string]: { id: string } };
+  BackendAcmCert?: { [region: string]: { id: string } };
   certificateid: { [region: string]: { id: string } };
   vpc: { [region: string]: { id: string } };
   STAGE: string;
@@ -11,9 +16,17 @@ export const env: {
   // Placeholders — replace with your environment values
   hostedZoneName: 'PLACEHOLDER_HOSTED_ZONE',
   hostedZoneId: 'PLACEHOLDER_HOSTED_ZONE_ID',
+  frontendDomainName: 'PLACEHOLDER_HOSTED_ZONE',
+  backendDomainName: 'backend.PLACEHOLDER_HOSTED_ZONE',
+  backendHostedZoneName: 'PLACEHOLDER_HOSTED_ZONE',
+  backendHostedZoneId: 'PLACEHOLDER_HOSTED_ZONE_ID',
   AcmCert: {
     'us-east-1': { id: 'PLACEHOLDER_ACM_ARN' },
     'us-west-2': { id: 'PLACEHOLDER_ACM_ARN' },
+  },
+  BackendAcmCert: {
+    'us-east-1': { id: 'PLACEHOLDER_BACKEND_ACM_ARN' },
+    'us-west-2': { id: 'PLACEHOLDER_BACKEND_ACM_ARN' },
   },
   certificateid: {
     'us-east-1': { id: 'PLACEHOLDER_CERT_ID' },

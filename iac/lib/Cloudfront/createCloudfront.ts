@@ -28,19 +28,27 @@ try {
 }
 
     
-// Reference your SSL certificate for HTTPS
-const certificate = certificatemanager.Certificate.fromCertificateArn(stack, 'CloudfrontCert', env.AcmCert[region].id);
+// Reference backend SSL certificate for HTTPS (use backend-specific cert if provided)
+const backendCertArn = (env.BackendAcmCert && env.BackendAcmCert[region]?.id)
+  ? env.BackendAcmCert[region].id
+  : env.AcmCert[region].id;
+const certificate = certificatemanager.Certificate.fromCertificateArn(stack, 'CloudfrontCert', backendCertArn);
+
+// Determine domain for this API distribution (backend subdomain by default)
+const distributionDomain = (env as any).backendDomainName
+  ? (env as any).backendDomainName
+  : `backend.${env.hostedZoneName}`;
 
     // Create a CloudFront distribution. If `apiDomain` is provided, use it as an HTTP origin
     const origin = apiDomain
-      ? new origins.HttpOrigin(apiDomain, { originPath: originPath ?? '' })
+      ? new origins.HttpOrigin(apiDomain)
       : origins.VpcOrigin.withNetworkLoadBalancer(NLB as INetworkLoadBalancer, {
           protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
           readTimeout: Duration.seconds(60),
           keepaliveTimeout: Duration.seconds(60),
         });
 
-    const Distribution = new cloudfront.Distribution(stack, `ModelMe_CloudFrontDistribution-${stage}`, {
+    const Distribution = new cloudfront.Distribution(stack, `GarmaxAi_CloudFrontDistribution-${stage}`, {
       defaultBehavior: {
         origin: origin,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
@@ -50,22 +58,33 @@ const certificate = certificatemanager.Certificate.fromCertificateArn(stack, 'Cl
       },
       enabled: true,
       enableIpv6: true,
-      webAclId: WAF?.attrArn,
-      domainNames: [`${env.hostedZoneName}`],
+      webAclId: (env as any).wafArn || WAF?.attrArn,
+      domainNames: [distributionDomain],
       certificate: certificate,
     });
 
-    // Create or reference a Route53 hosted zone and add an A record alias to CloudFront
+    // Create or reference a Route53 hosted zone and add a DNS record (Alias A or CNAME) to CloudFront
     try {
-      const hostedZone = route53.HostedZone.fromLookup(stack, 'ModelMeHostedZone', { domainName: env.hostedZoneName });
-      new route53.ARecord(stack, `ModelMeCloudFrontAlias-${stage}`, {
-        recordName: env.hostedZoneName,
-        zone: hostedZone,
-        target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(Distribution)),
-        ttl: Duration.minutes(5),
-      });
+      const zoneName = (env as any).backendHostedZoneName || env.hostedZoneName;
+      const hostedZone = route53.HostedZone.fromLookup(stack, 'GarmaxAiHostedZone', { domainName: zoneName });
+
+      if ((env as any).useCnameForBackend) {
+        new route53.CnameRecord(stack, `GarmaxAiCloudFrontCname-${stage}`, {
+          recordName: distributionDomain,
+          zone: hostedZone,
+          domainName: Distribution.distributionDomainName,
+          ttl: Duration.minutes(5),
+        });
+      } else {
+        new route53.ARecord(stack, `GarmaxAiCloudFrontAlias-${stage}`, {
+          recordName: distributionDomain,
+          zone: hostedZone,
+          target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(Distribution)),
+          ttl: Duration.minutes(5),
+        });
+      }
     } catch (e) {
-      // If hosted zone lookup fails during synth, skip creating record. User can create manually.
+      // If hosted zone lookup fails during synth, skip creating record. create manually.
     }
 
 

@@ -7,6 +7,15 @@ export default {
     ecrname: { "us-east-1": { name: "PLACEHOLDER_ECR" }, "us-west-2": { name: "PLACEHOLDER_ECR" } },
     hostedZoneName: "PLACEHOLDER_HOSTED_ZONE",
     hostedZoneId: "PLACEHOLDER_HOSTED_ZONE_ID",
+    frontendDomainName: "PLACEHOLDER_HOSTED_ZONE",
+    backendDomainName: "backend.PLACEHOLDER_HOSTED_ZONE",
+    backendHostedZoneName: "PLACEHOLDER_HOSTED_ZONE",
+    backendHostedZoneId: "PLACEHOLDER_HOSTED_ZONE_ID",
+    BackendAcmCert: {
+        "us-east-1": { id: "PLACEHOLDER_BACKEND_ACM_ARN" },
+        "us-west-2": { id: "PLACEHOLDER_BACKEND_ACM_ARN" }
+    },
+    useCnameForBackend: false,
     TaskDefName: "PLACEHOLDER_TASKDEF",
     ServiceName: { "us-east-1": { id1: 'PLACEHOLDER_SERVICE' }, "us-west-2": { id1: 'PLACEHOLDER_SERVICE' } },
     clusterinfo: {

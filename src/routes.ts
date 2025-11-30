@@ -5,9 +5,14 @@ import authRouter from "./routers/authRouter";
 import userRouter from "./routers/userRouter";
 import generationRouter from "./routers/generationRouter";
 import creditsRouter from "./routers/creditsRouter";
+import { tryonRouter } from "./routers/tryonRouter";
+import { avatarRouter } from "./routers/avatarRouter";
+import { garmentRouter } from "./routers/garmentRouter";
 import { requestLogger } from "./middleware/requestLogger";
 import { setUser, requireAuth } from "./middleware/auth";
 import { errorHandler, notFound } from "./middleware/errorHandler";
+import { initializeTryonWebSocket } from "./websocket/tryonWebSocket";
+import paymentsRouter from "./routers/paymentsRouter";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Middleware
@@ -19,6 +24,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/users", requireAuth, userRouter);
   app.use("/api/generation", requireAuth, generationRouter);
   app.use("/api/credits", requireAuth, creditsRouter);
+  app.use("/api/tryon", tryonRouter);
+  app.use("/api/tryon/avatars", avatarRouter);
+  app.use("/api/tryon/garment", garmentRouter);
+  app.use("/api", paymentsRouter);
 
   // Health check
   app.get("/api/health", (req, res) => {
@@ -30,6 +39,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(errorHandler);
 
   const httpServer = createServer(app);
+
+  // Initialize WebSocket server
+  initializeTryonWebSocket(httpServer);
 
   return httpServer;
 }

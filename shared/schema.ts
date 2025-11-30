@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { mysqlTable, text, varchar, int, timestamp, json, boolean } from "drizzle-orm/mysql-core";
+import { mysqlTable, text, varchar, int, timestamp, json, boolean, decimal } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -29,6 +29,94 @@ export const generations = mysqlTable("generations", {
   updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
 });
 
+// Subscription Plans table
+export const subscriptionPlans = mysqlTable("subscription_plans", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  name: varchar("name", { length: 50 }).notNull(),
+  price: int("price").notNull(), // in cents
+  tryonQuota: int("tryon_quota").notNull(),
+  avatarLimit: int("avatar_limit").notNull(),
+  maxResolution: varchar("max_resolution", { length: 10 }).notNull(),
+  features: json("features"),
+  stripePriceId: text("stripe_price_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Subscriptions table
+export const subscriptions = mysqlTable("subscriptions", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  planId: varchar("plan_id", { length: 36 }).notNull().references(() => subscriptionPlans.id),
+  status: varchar("status", { length: 20 }).notNull(), // active, cancelled, past_due
+  currentPeriodEnd: timestamp("current_period_end").notNull(),
+  tryonQuotaUsed: int("tryon_quota_used").notNull().default(0),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
+// User Avatars table
+export const userAvatars = mysqlTable("user_avatars", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  rpmAvatarId: text("rpm_avatar_id").notNull(),
+  avatarGlbUrl: text("avatar_glb_url").notNull(),
+  avatarThumbnailUrl: text("avatar_thumbnail_url"),
+  isDemo: boolean("is_demo").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
+// Garment Items table
+export const garmentItems = mysqlTable("garment_items", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  imageUrl: text("image_url").notNull(),
+  s3Key: text("s3_key").notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // shirt, pants, dress, jacket, shoes, hat, accessory
+  color: varchar("color", { length: 100 }),
+  pattern: varchar("pattern", { length: 100 }),
+  brand: varchar("brand", { length: 100 }),
+  isOverlayable: boolean("is_overlayable").notNull().default(false),
+  overlayConfidence: decimal("overlay_confidence", { precision: 5, scale: 2 }),
+  analysisData: json("analysis_data"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Virtual Wardrobe table
+export const virtualWardrobe = mysqlTable("virtual_wardrobe", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  garmentId: varchar("garment_id", { length: 36 }).notNull().references(() => garmentItems.id),
+  position: int("position").notNull().default(0),
+  addedAt: timestamp("added_at").notNull().defaultNow(),
+});
+
+// Try-On Sessions table
+export const tryonSessions = mysqlTable("tryon_sessions", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  avatarId: varchar("avatar_id", { length: 36 }).notNull().references(() => userAvatars.id),
+  garmentIds: json("garment_ids").$type<string[]>().notNull(),
+  overlayGarmentIds: json("overlay_garment_ids").$type<string[]>().notNull(),
+  promptGarmentIds: json("prompt_garment_ids").$type<string[]>().notNull(),
+  renderQuality: varchar("render_quality", { length: 10 }).notNull(), // sd, hd, 4k
+  backgroundScene: varchar("background_scene", { length: 50 }).notNull(), // studio, urban, outdoor, custom
+  customBackgroundPrompt: text("custom_background_prompt"),
+  status: varchar("status", { length: 30 }).notNull(), // queued, processing_avatar, applying_overlays, preview_ready, awaiting_confirmation, rendering_ai, completed, cancelled, failed
+  progress: int("progress").notNull().default(0),
+  previewExpiresAt: timestamp("preview_expires_at"),
+  baseImageUrl: text("base_image_url"),
+  renderedImageUrl: text("rendered_image_url"),
+  creditsUsed: int("credits_used").notNull().default(0),
+  usedQuota: boolean("used_quota").notNull().default(false),
+  refundedCredits: int("refunded_credits").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -42,8 +130,40 @@ export const generationSchema = z.object({
   quality: z.enum(["low", "medium", "high"]).optional(),
 });
 
+export const createAvatarSchema = z.object({
+  rpmAvatarId: z.string(),
+  avatarGlbUrl: z.string().url(),
+  avatarThumbnailUrl: z.string().url().optional(),
+});
+
+export const uploadGarmentSchema = z.object({
+  name: z.string().min(1).max(255),
+  type: z.enum(["shirt", "pants", "dress", "jacket", "shoes", "hat", "accessory"]),
+});
+
+export const createTryonSessionSchema = z.object({
+  avatarId: z.string().uuid(),
+  garmentIds: z.array(z.string().uuid()).min(1),
+  renderQuality: z.enum(["sd", "hd", "4k"]).default("sd"),
+  backgroundScene: z.enum(["studio", "urban", "outdoor", "custom"]).default("studio"),
+  customBackgroundPrompt: z.string().max(200).optional(),
+});
+
+export const confirmPreviewSchema = z.object({
+  approveOverlay: z.boolean(),
+});
+
 // Type exports
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Generation = typeof generations.$inferSelect;
 export type InsertGeneration = typeof generations.$inferInsert;
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type UserAvatar = typeof userAvatars.$inferSelect;
+export type InsertUserAvatar = typeof userAvatars.$inferInsert;
+export type GarmentItem = typeof garmentItems.$inferSelect;
+export type InsertGarmentItem = typeof garmentItems.$inferInsert;
+export type VirtualWardrobe = typeof virtualWardrobe.$inferSelect;
+export type TryonSession = typeof tryonSessions.$inferSelect;
+export type InsertTryonSession = typeof tryonSessions.$inferInsert;

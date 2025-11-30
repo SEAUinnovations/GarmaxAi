@@ -1,13 +1,11 @@
 import * as cdk from 'aws-cdk-lib';
 import { env } from '../../../parameters/config'
-import { SubnetType, GatewayVpcEndpointAwsService, InterfaceVpcEndpointAwsService, GatewayVpcEndpoint, InterfaceVpcEndpoint, ISecurityGroup } from 'aws-cdk-lib/aws-ec2';
 import { Stack } from 'aws-cdk-lib';
 
 
 export default function createVpc(
     stack: Stack,
     region: string,
-    // vpcEndpointSecurityGroup: ISecurityGroup
 ) {
 
     //Attach VPC

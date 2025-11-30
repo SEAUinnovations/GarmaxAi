@@ -6,16 +6,25 @@ export default {
     S3_BUCKET: 'PLACEHOLDER_S3_BUCKET',
     TEMP_BUCKET: "",
     AcmCert: {
-        "us-east-1": { id: "PLACEHOLDER_ACM_ARN" },
+        "us-east-1": { id: "arn:aws:acm:us-east-2:920792187297:certificate/27f59408-a7ab-4068-bcd8-b7b4d4fc928d" },
         "us-west-2": { id: "PLACEHOLDER_ACM_ARN" }
     },
     certificateid: {
-        "us-east-1": { id: "PLACEHOLDER_CERT_ID" },
+        "us-east-1": { id: "27f59408-a7ab-4068-bcd8-b7b4d4fc928d" },
         "us-west-2": { id: "PLACEHOLDER_CERT_ID" }
     },
-    ecrname: { "us-east-1": { name: "PLACEHOLDER_ECR" }, "us-west-2": { name: "PLACEHOLDER_ECR" } },
+    ecrname: { "us-east-1": { name: "garmaxecr" }, "us-west-2": { name: "PLACEHOLDER_ECR" } },
     hostedZoneName: "PLACEHOLDER_HOSTED_ZONE",
     hostedZoneId: "PLACEHOLDER_HOSTED_ZONE_ID",
+    frontendDomainName: "PLACEHOLDER_HOSTED_ZONE",
+    backendDomainName: "backend.PLACEHOLDER_HOSTED_ZONE",
+    backendHostedZoneName: "PLACEHOLDER_HOSTED_ZONE",
+    backendHostedZoneId: "PLACEHOLDER_HOSTED_ZONE_ID",
+    BackendAcmCert: {
+        "us-east-1": { id: "PLACEHOLDER_BACKEND_ACM_ARN" },
+        "us-west-2": { id: "PLACEHOLDER_BACKEND_ACM_ARN" }
+    },
+    useCnameForBackend: false,
     TaskDefName: "PLACEHOLDER_TASKDEF",
     ServiceName: {
         "us-east-1": { id1: 'PLACEHOLDER_SERVICE' },
