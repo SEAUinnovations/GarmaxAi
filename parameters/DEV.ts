@@ -1,0 +1,49 @@
+export default {
+	vpc: {
+		"us-east-1": { id: "PLACEHOLDER_VPC_ID" },
+		"us-west-2": { id: "PLACEHOLDER_VPC_ID" },
+	},
+    S3_BUCKET: 'PLACEHOLDER_S3_BUCKET',
+    TEMP_BUCKET: "",
+    AcmCert: {
+        "us-east-1": { id: "PLACEHOLDER_ACM_ARN" },
+        "us-west-2": { id: "PLACEHOLDER_ACM_ARN" }
+    },
+    certificateid: {
+        "us-east-1": { id: "PLACEHOLDER_CERT_ID" },
+        "us-west-2": { id: "PLACEHOLDER_CERT_ID" }
+    },
+    ecrname: { "us-east-1": { name: "PLACEHOLDER_ECR" }, "us-west-2": { name: "PLACEHOLDER_ECR" } },
+    hostedZoneName: "PLACEHOLDER_HOSTED_ZONE",
+    hostedZoneId: "PLACEHOLDER_HOSTED_ZONE_ID",
+    TaskDefName: "PLACEHOLDER_TASKDEF",
+    ServiceName: {
+        "us-east-1": { id1: 'PLACEHOLDER_SERVICE' },
+        "us-west-2": { id1: 'PLACEHOLDER_SERVICE' }
+    },
+    clusterinfo: {
+        "us-east-1": {
+            name: "PLACEHOLDER_CLUSTER",
+            memory: 3072,
+            minCapacity: 1,
+            maxCapacity: 6,
+            cpu: 512,
+        },
+        "us-west-2": {
+            name: "PLACEHOLDER_CLUSTER",
+            memory: 3072,
+            minCapacity: 1,
+            maxCapacity: 6,
+            cpu: 512,
+        },
+    },
+    ApiName: { "us-east-1": { id: "PLACEHOLDER_API" }, "us-west-2": { id: "PLACEHOLDER_API" } },
+    Fargateclustername: "PLACEHOLDER_FARGATE_CLUSTER",
+    FargateContainerName: "PLACEHOLDER_FARGATE_CONTAINER",
+    NetworkloadBalancerName: "PLACEHOLDER_NLB",
+    awsAccountNumber: "PLACEHOLDER_AWS_ACCOUNT",
+    APP_ID: "PLACEHOLDER_LAMBDA_ARN",
+    STAGE: "DEV",
+    LOG_LEVEL: 'info',
+    wafArn: "PLACEHOLDER_WAF_ARN",
+}
