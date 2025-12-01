@@ -25,11 +25,11 @@ const MIN_CONFIDENCE_THRESHOLD = 80;
  */
 export class GarmentAnalysisService {
   /**
-   * Analyze garment image using Gemini Nano on Replicate
+   * Analyze garment image using LLaVA-13B on Replicate
    */
   async analyzeGarment(imageBuffer: Buffer): Promise<GarmentAnalysisResult> {
     try {
-      logger.info("Analyzing garment with Gemini Nano via Replicate", "GarmentAnalysisService");
+      logger.info("Analyzing garment with LLaVA-13B via Replicate", "GarmentAnalysisService");
 
       // Convert buffer to base64 data URI
       const base64Image = `data:image/jpeg;base64,${imageBuffer.toString("base64")}`;
@@ -46,18 +46,17 @@ Respond ONLY in this exact JSON format with no additional text:
 {"type":"shirt","color":"navy blue","pattern":"solid","brand":null,"hasComplexPattern":false,"confidence":95}`;
 
       const output = (await replicate.run(
-        "google/nano-banana-pro:latest",
+        "yorickvp/llava-13b:latest",
         {
           input: {
             image: base64Image,
             prompt: prompt,
-            max_tokens: 200,
           },
         }
       )) as any;
 
       const responseText = typeof output === 'string' ? output : JSON.stringify(output);
-      logger.info("Gemini Nano response received", "GarmentAnalysisService");
+      logger.info("LLaVA response received", "GarmentAnalysisService");
 
       // Parse the response
       const analysis = this.parseGeminiResponse(responseText);
@@ -106,7 +105,7 @@ Respond ONLY in this exact JSON format with no additional text:
   }
 
   /**
-   * Parse Gemini Nano JSON response
+   * Parse LLaVA JSON response
    */
   private parseGeminiResponse(output: string): {
     type: string;
@@ -134,7 +133,7 @@ Respond ONLY in this exact JSON format with no additional text:
         confidence: parsed.confidence || 50,
       };
     } catch (error) {
-      logger.error("Failed to parse Gemini response", "GarmentAnalysisService");
+      logger.error("Failed to parse LLaVA response", "GarmentAnalysisService");
       return {
         type: "unknown",
         color: "unknown",

@@ -13,6 +13,8 @@ import { setUser, requireAuth } from "./middleware/auth";
 import { errorHandler, notFound } from "./middleware/errorHandler";
 import { initializeTryonWebSocket } from "./websocket/tryonWebSocket";
 import paymentsRouter from "./routers/paymentsRouter";
+import { healthRouter } from "./routers/healthRouter";
+import analyticsRouter from "./routers/analyticsRouter";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Middleware
@@ -28,11 +30,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/tryon/avatars", avatarRouter);
   app.use("/api/tryon/garment", garmentRouter);
   app.use("/api", paymentsRouter);
-
-  // Health check
-  app.get("/api/health", (req, res) => {
-    res.status(200).json({ message: "Server is running" });
-  });
+  app.use("/api/analytics", requireAuth, analyticsRouter);
+  
+  // Health checks
+  app.use("/api/health", healthRouter);
 
   // Error handling (must be last)
   app.use(notFound);

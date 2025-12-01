@@ -16,6 +16,7 @@ import {
   Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProfileEditSection } from "@/components/ProfileEditSection";
 
 export default function Account() {
   const [subscription] = useState({
@@ -129,8 +130,11 @@ export default function Account() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Subscription & Credits */}
+          {/* Left Column - Profile, Subscription & Credits */}
           <div className="lg:col-span-2 space-y-6">
+            
+            {/* Profile Section */}
+            <ProfileEditSection />
             {/* Subscription Card */}
             <Card className="border-white/10 bg-card">
               <CardHeader>

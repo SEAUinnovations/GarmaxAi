@@ -4,6 +4,7 @@ import { logger } from "../utils/winston-logger";
 import { storage } from "../storage";
 import { creditsService } from "../services/creditsService";
 import { subscriptionService } from "../services/subscriptionService";
+import { eventBridgeService } from "../services/eventBridgeService";
 import { 
   createTryonSessionSchema, 
   confirmPreviewSchema,
@@ -97,8 +98,8 @@ export async function createTryonSession(
       return;
     }
 
-    // TODO: Publish EventBridge event for async processing
-    // await publishTryonEvent(session);
+    // Publish EventBridge event for async SMPL processing
+    await eventBridgeService.publishTryonEvent(session);
 
     res.status(201).json({
       sessionId: session.id,
@@ -237,10 +238,10 @@ export async function confirmPreview(
       await storage.updateTryonSession?.(sessionId, {
         status: "awaiting_confirmation",
       });
+      
+      // Publish EventBridge event for AI rendering
+      await eventBridgeService.publishRenderEvent(session);
     }
-
-    // TODO: Publish EventBridge event for AI rendering
-    // await publishRenderEvent(session);
 
     res.status(200).json({
       success: true,

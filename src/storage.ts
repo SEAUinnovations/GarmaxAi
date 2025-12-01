@@ -1,103 +1,74 @@
 import { type User, type InsertUser, type Generation, type InsertGeneration } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { type TempUser } from "./types/index";
+import { StorageFactory } from "./storage/storageFactory";
 
 // Storage interface for database operations
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
+  getUserById(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  createUser(user: InsertUser & {
+    emailVerified?: boolean;
+    trialExpiresAt?: Date;
+    trialStatus?: 'active' | 'expired' | 'converted' | null;
+    subscriptionTier?: 'free' | 'studio' | 'pro';
+    creditsRemaining?: number;
+  }): Promise<User>;
   updateUserCredits(userId: string, credits: number): Promise<User>;
   createGeneration(generation: InsertGeneration): Promise<Generation>;
   getGeneration(id: string): Promise<Generation | undefined>;
   getUserGenerations(userId: string): Promise<Generation[]>;
   cancelGeneration(id: string): Promise<boolean>;
+  // Temp user methods for email verification
+  createTempUser(data: {
+    email: string;
+    verificationCode: string;
+    verificationExpiry: Date;
+    trialExpiresAt: Date;
+  }): Promise<TempUser>;
+  getTempUserByEmail(email: string): Promise<TempUser | undefined>;
+  updateTempUser(email: string, data: {
+    verificationCode?: string;
+    verificationExpiry?: Date;
+  }): Promise<void>;
+  deleteTempUser(email: string): Promise<void>;
 }
 
-/**
- * In-memory storage implementation
- * TODO: Replace with actual database (PostgreSQL + Drizzle)
- */
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private generations: Map<string, Generation>;
+// Export factory and helper functions
+export { StorageFactory };
 
-  constructor() {
-    this.users = new Map();
-    this.generations = new Map();
-  }
+// Helper function to get storage instance
+export const getStorage = () => StorageFactory.getStorage();
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === email,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = {
-      ...insertUser,
-      id,
-      credits: 10,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.users.set(id, user);
-    return user;
-  }
-
-  async updateUserCredits(userId: string, credits: number): Promise<User> {
-    const user = this.users.get(userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    const updated: User = {
-      ...user,
-      credits,
-      updatedAt: new Date(),
-    };
-
-    this.users.set(userId, updated);
-    return updated;
-  }
-
-  async createGeneration(generation: InsertGeneration): Promise<Generation> {
-    const id = randomUUID();
-    const newGeneration: Generation = {
-      ...generation,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    } as Generation;
-
-    this.generations.set(id, newGeneration);
-    return newGeneration;
-  }
-
-  async getGeneration(id: string): Promise<Generation | undefined> {
-    return this.generations.get(id);
-  }
-
-  async getUserGenerations(userId: string): Promise<Generation[]> {
-    return Array.from(this.generations.values()).filter(
-      (gen) => gen.userId === userId,
-    );
-  }
-
-  async cancelGeneration(id: string): Promise<boolean> {
-    return this.generations.delete(id);
-  }
-}
-
-export const storage = new MemStorage();
+// Legacy support - maintain storage export for existing code
+export const storage = {
+  getUser: async (id: string) => (await StorageFactory.getStorage()).getUser(id),
+  getUserById: async (id: string) => (await StorageFactory.getStorage()).getUserById(id),
+  getUserByUsername: async (username: string) => (await StorageFactory.getStorage()).getUserByUsername(username),
+  getUserByEmail: async (email: string) => (await StorageFactory.getStorage()).getUserByEmail(email),
+  createUser: async (user: InsertUser & {
+    emailVerified?: boolean;
+    trialExpiresAt?: Date;
+    trialStatus?: 'active' | 'expired' | 'converted' | null;
+    subscriptionTier?: 'free' | 'studio' | 'pro';
+    creditsRemaining?: number;
+  }) => (await StorageFactory.getStorage()).createUser(user),
+  updateUserCredits: async (userId: string, credits: number) => (await StorageFactory.getStorage()).updateUserCredits(userId, credits),
+  createGeneration: async (generation: InsertGeneration) => (await StorageFactory.getStorage()).createGeneration(generation),
+  getGeneration: async (id: string) => (await StorageFactory.getStorage()).getGeneration(id),
+  getUserGenerations: async (userId: string) => (await StorageFactory.getStorage()).getUserGenerations(userId),
+  cancelGeneration: async (id: string) => (await StorageFactory.getStorage()).cancelGeneration(id),
+  createTempUser: async (data: {
+    email: string;
+    verificationCode: string;
+    verificationExpiry: Date;
+    trialExpiresAt: Date;
+  }) => (await StorageFactory.getStorage()).createTempUser(data),
+  getTempUserByEmail: async (email: string) => (await StorageFactory.getStorage()).getTempUserByEmail(email),
+  updateTempUser: async (email: string, data: {
+    verificationCode?: string;
+    verificationExpiry?: Date;
+  }) => (await StorageFactory.getStorage()).updateTempUser(email, data),
+  deleteTempUser: async (email: string) => (await StorageFactory.getStorage()).deleteTempUser(email),
+};

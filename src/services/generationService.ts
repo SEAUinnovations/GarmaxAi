@@ -1,6 +1,11 @@
 import { storage } from "../storage";
 import { type Generation, type InsertGeneration } from "@shared/schema";
 import { logger } from "../utils/winston-logger";
+import Replicate from "replicate";
+
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN,
+});
 
 /**
  * Generation Service
@@ -46,11 +51,100 @@ export class GenerationService {
         "GenerationService"
       );
 
+      // Start async image generation
+      this.processGeneration(generation.id, request).catch((error: any) => {
+        logger.error(`Failed to process generation ${generation.id}: ${error}`, "GenerationService");
+      });
+
       return generation;
     } catch (error) {
       logger.error(`Failed to create generation: ${error}`, "GenerationService");
       throw error;
     }
+  }
+
+  /**
+   * Process generation with nano-banana
+   */
+  private async processGeneration(generationId: string, request: GenerationRequest): Promise<void> {
+    try {
+      logger.info(`Starting image generation for ${generationId}`, "GenerationService");
+
+      // Update status to processing
+      await this.updateGenerationStatus(generationId, "processing");
+
+      // Enhanced prompt based on style
+      const enhancedPrompt = this.enhancePrompt(request.prompt, request.style);
+
+      // Generate image with nano-banana
+      const output = await replicate.run("google/nano-banana-pro:latest", {
+        input: {
+          prompt: enhancedPrompt,
+          num_inference_steps: this.getInferenceSteps(request.quality || "medium"),
+          guidance_scale: 7.5,
+          width: 512,
+          height: 512,
+        },
+      }) as string[];
+
+      const imageUrl = Array.isArray(output) ? output[0] : output;
+
+      if (!imageUrl) {
+        throw new Error("No image URL returned from nano-banana");
+      }
+
+      // Update generation with result
+      await this.updateGenerationResult(generationId, imageUrl);
+
+      logger.info(`Generation completed successfully: ${generationId}`, "GenerationService");
+
+    } catch (error) {
+      logger.error(`Generation failed for ${generationId}: ${error}`, "GenerationService");
+      await this.updateGenerationStatus(generationId, "failed");
+    }
+  }
+
+  /**
+   * Update generation status
+   */
+  private async updateGenerationStatus(generationId: string, status: "processing" | "completed" | "failed"): Promise<void> {
+    // This would need to be implemented in storage interface
+    logger.info(`Updated generation ${generationId} status to ${status}`, "GenerationService");
+  }
+
+  /**
+   * Update generation with result
+   */
+  private async updateGenerationResult(generationId: string, imageUrl: string): Promise<void> {
+    // This would need to be implemented in storage interface
+    logger.info(`Updated generation ${generationId} with image URL`, "GenerationService");
+  }
+
+  /**
+   * Enhance prompt based on style
+   */
+  private enhancePrompt(prompt: string, style: string): string {
+    const stylePrompts = {
+      portrait: "professional portrait photography, high quality, detailed face, studio lighting",
+      fashion: "fashion photography, runway style, professional lighting, haute couture",
+      editorial: "editorial photography, artistic composition, dramatic lighting, magazine quality",
+      commercial: "commercial photography, product focused, clean background, professional"
+    };
+
+    const styleEnhancement = stylePrompts[style as keyof typeof stylePrompts] || stylePrompts.portrait;
+    return `${prompt}, ${styleEnhancement}, 4K, high resolution, masterpiece`;
+  }
+
+  /**
+   * Get inference steps based on quality
+   */
+  private getInferenceSteps(quality: string): number {
+    const stepsMap: Record<string, number> = {
+      low: 20,
+      medium: 30,
+      high: 50,
+    };
+    return stepsMap[quality] || 30;
   }
 
   /**

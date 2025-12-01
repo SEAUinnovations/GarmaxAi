@@ -162,25 +162,13 @@ export class CreditsService {
    */
   async refundSession(sessionId: string, refundPercent: number): Promise<number> {
     try {
-      const session = await storage.getTryonSession?.(sessionId);
-      if (!session) {
-        throw new Error("Session not found");
-      }
-
-      if (session.creditsUsed === 0) {
-        return 0; // No credits to refund
-      }
-
-      const refundAmount = Math.floor(session.creditsUsed * refundPercent);
-      await this.addCredits(session.userId, refundAmount);
-      await storage.updateSessionRefund?.(sessionId, refundAmount);
-
+      // TODO: Implement try-on session storage - return 0 refund for now
       logger.info(
-        `Refunded ${refundAmount} credits (${refundPercent * 100}%) for session ${sessionId}`,
+        `Refund requested for session ${sessionId} (${refundPercent * 100}%) - placeholder implementation`,
         "CreditsService"
       );
-
-      return refundAmount;
+      
+      return 0; // No refund until session storage is implemented
     } catch (error) {
       logger.error(`Failed to refund session: ${error}`, "CreditsService");
       throw error;

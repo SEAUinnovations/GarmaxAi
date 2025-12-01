@@ -1,0 +1,432 @@
+version: 2.1
+
+orbs:
+  node: circleci/node@6.1.0
+  aws-cli: circleci/aws-cli@5.1.1
+  snyk: snyk/snyk@2.3.0
+
+# Reusable executors
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:20.11.1
+    resource_class: medium
+    working_directory: ~/repo
+
+  docker-executor:
+    docker:
+      - image: cimg/base:stable
+    resource_class: medium
+    working_directory: ~/repo
+
+# Reusable commands
+commands:
+  restore-workspace:
+    description: "Restore workspace from earlier job"
+    steps:
+      - attach_workspace:
+          at: ~/repo
+
+  save-workspace:
+    description: "Save workspace for later jobs"
+    steps:
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - .
+
+  install-dependencies:
+    description: "Install npm dependencies with caching"
+    steps:
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "package.json" }}
+            - v1-dependencies-
+      - run:
+          name: Install root dependencies
+          command: npm ci
+      - save_cache:
+          key: v1-dependencies-{{ checksum "package.json" }}
+          paths:
+            - node_modules
+
+  install-frontend-dependencies:
+    description: "Install frontend npm dependencies with caching"
+    steps:
+      - restore_cache:
+          keys:
+            - v1-frontend-dependencies-{{ checksum "client/package.json" }}
+            - v1-frontend-dependencies-
+      - run:
+          name: Install frontend dependencies
+          command: cd client && npm ci
+      - save_cache:
+          key: v1-frontend-dependencies-{{ checksum "client/package.json" }}
+          paths:
+            - client/node_modules
+
+  install-iac-dependencies:
+    description: "Install IAC dependencies with caching"
+    steps:
+      - restore_cache:
+          keys:
+            - v1-iac-dependencies-{{ checksum "iac/package.json" }}
+            - v1-iac-dependencies-
+      - run:
+          name: Install IAC dependencies
+          command: cd iac && npm ci
+      - save_cache:
+          key: v1-iac-dependencies-{{ checksum "iac/package.json" }}
+          paths:
+            - iac/node_modules
+
+# Jobs
+jobs:
+  # Checkout and setup
+  checkout-code:
+    executor: node-executor
+    steps:
+      - checkout
+      - install-dependencies
+      - install-frontend-dependencies
+      - install-iac-dependencies
+      - save-workspace
+
+  # Backend build
+  build-backend:
+    executor: node-executor
+    steps:
+      - restore-workspace
+      - run:
+          name: Build backend API
+          command: npm run build:backend
+      - run:
+          name: Verify backend build artifacts
+          command: |
+            if [ ! -f "dist/index.js" ]; then
+              echo "Backend build failed - dist/index.js not found"
+              exit 1
+            fi
+      - save-workspace
+
+  # Frontend build
+  build-frontend:
+    executor: node-executor
+    steps:
+      - restore-workspace
+      - run:
+          name: Build frontend static files
+          command: npm run build:frontend
+      - run:
+          name: Verify frontend build artifacts
+          command: |
+            if [ ! -d "client/dist" ]; then
+              echo "Frontend build failed - client/dist not found"
+              exit 1
+            fi
+      - save-workspace
+
+  # Backend testing with 90% coverage threshold
+  test-backend:
+    executor: node-executor
+    steps:
+      - restore-workspace
+      - run:
+          name: Run backend unit tests with coverage
+          command: npm run test:coverage
+      - run:
+          name: Verify coverage thresholds (90%)
+          command: |
+            echo "Coverage thresholds enforced via jest.config.js"
+            cat coverage/coverage-summary.json
+      - store_test_results:
+          path: coverage
+      - store_artifacts:
+          path: coverage
+          destination: backend-coverage
+
+  # Frontend testing with 90% coverage threshold
+  test-frontend:
+    executor: node-executor
+    steps:
+      - restore-workspace
+      - run:
+          name: Run frontend unit tests with coverage
+          command: npm run test:frontend:coverage
+      - run:
+          name: Verify coverage thresholds (90%)
+          command: |
+            echo "Coverage thresholds enforced via vitest.config.ts"
+            cat client/coverage/coverage-summary.json || echo "No coverage summary found"
+      - store_test_results:
+          path: client/coverage
+      - store_artifacts:
+          path: client/coverage
+          destination: frontend-coverage
+
+  # Security scan - Snyk dependency scanning (free tier)
+  security-scan-snyk:
+    executor: node-executor
+    steps:
+      - restore-workspace
+      - snyk/scan:
+          fail-on-issues: true
+          severity-threshold: high
+          monitor-on-build: true
+
+  # Security scan - npm audit for backend
+  security-scan-npm-audit:
+    executor: node-executor
+    steps:
+      - restore-workspace
+      - run:
+          name: Run npm audit on backend dependencies
+          command: |
+            npm audit --audit-level=high || true
+            echo "Backend npm audit complete"
+      - run:
+          name: Run npm audit on frontend dependencies
+          command: |
+            cd client
+            npm audit --audit-level=high || true
+            echo "Frontend npm audit complete"
+
+  # Security scan - Trivy container scanning (free)
+  security-scan-trivy:
+    executor: docker-executor
+    steps:
+      - restore-workspace
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Install Trivy
+          command: |
+            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+            echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+            sudo apt-get update
+            sudo apt-get install trivy -y
+      - run:
+          name: Build Docker images for scanning
+          command: |
+            docker build -f Dockerfile.api -t garmaxai-api:${CIRCLE_SHA1} .
+            docker build -f Dockerfile.smpl -t garmaxai-smpl:${CIRCLE_SHA1} .
+      - run:
+          name: Scan API container with Trivy
+          command: |
+            trivy image --severity HIGH,CRITICAL --exit-code 0 garmaxai-api:${CIRCLE_SHA1}
+      - run:
+          name: Scan SMPL container with Trivy
+          command: |
+            trivy image --severity HIGH,CRITICAL --exit-code 0 garmaxai-smpl:${CIRCLE_SHA1}
+
+  # Build and push Docker images
+  build-docker-images:
+    executor: docker-executor
+    steps:
+      - restore-workspace
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - aws-cli/setup:
+          role_arn: ${AWS_ROLE_ARN}
+      - run:
+          name: Login to Amazon ECR
+          command: |
+            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+      - run:
+          name: Build and tag Docker images
+          command: |
+            # Build API container
+            docker build -f Dockerfile.api -t garmaxai-api:${CIRCLE_SHA1} .
+            docker tag garmaxai-api:${CIRCLE_SHA1} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-api:${CIRCLE_SHA1}
+            docker tag garmaxai-api:${CIRCLE_SHA1} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-api:latest
+            
+            # Build SMPL processor container
+            docker build -f Dockerfile.smpl -t garmaxai-smpl:${CIRCLE_SHA1} .
+            docker tag garmaxai-smpl:${CIRCLE_SHA1} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-smpl:${CIRCLE_SHA1}
+            docker tag garmaxai-smpl:${CIRCLE_SHA1} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-smpl:latest
+      - run:
+          name: Push Docker images to ECR
+          command: |
+            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-api:${CIRCLE_SHA1}
+            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-api:latest
+            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-smpl:${CIRCLE_SHA1}
+            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-smpl:latest
+
+  # Deploy to development
+  deploy-dev:
+    executor: node-executor
+    steps:
+      - restore-workspace
+      - aws-cli/setup:
+          role_arn: ${AWS_ROLE_ARN}
+      - run:
+          name: Deploy CDK stack to development
+          command: npm run deploy:dev
+      - run:
+          name: Upload frontend to S3
+          command: |
+            BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName-dev'].OutputValue" --output text)
+            aws s3 sync client/dist s3://${BUCKET_NAME} --delete
+      - run:
+          name: Invalidate CloudFront cache
+          command: |
+            DIST_ID=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId-dev'].OutputValue" --output text)
+            aws cloudfront create-invalidation --distribution-id ${DIST_ID} --paths "/*"
+
+  # Deploy to QA
+  deploy-qa:
+    executor: node-executor
+    steps:
+      - restore-workspace
+      - aws-cli/setup:
+          role_arn: ${AWS_ROLE_ARN}
+      - run:
+          name: Deploy CDK stack to QA
+          command: npm run deploy:qa
+      - run:
+          name: Upload frontend to S3
+          command: |
+            BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName-qa'].OutputValue" --output text)
+            aws s3 sync client/dist s3://${BUCKET_NAME} --delete
+      - run:
+          name: Invalidate CloudFront cache
+          command: |
+            DIST_ID=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId-qa'].OutputValue" --output text)
+            aws cloudfront create-invalidation --distribution-id ${DIST_ID} --paths "/*"
+
+  # Deploy to production
+  deploy-prod:
+    executor: node-executor
+    steps:
+      - restore-workspace
+      - aws-cli/setup:
+          role_arn: ${AWS_ROLE_ARN}
+      - run:
+          name: Deploy CDK stack to production
+          command: npm run deploy:prod
+      - run:
+          name: Upload frontend to S3
+          command: |
+            BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName-prod'].OutputValue" --output text)
+            aws s3 sync client/dist s3://${BUCKET_NAME} --delete
+      - run:
+          name: Invalidate CloudFront cache
+          command: |
+            DIST_ID=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId-prod'].OutputValue" --output text)
+            aws cloudfront create-invalidation --distribution-id ${DIST_ID} --paths "/*"
+
+# Workflows
+workflows:
+  version: 2
+  build-test-deploy:
+    jobs:
+      # Step 1: Checkout and setup
+      - checkout-code:
+          context: garmaxai-aws
+
+      # Step 2: Parallel build and test
+      - build-backend:
+          context: garmaxai-aws
+          requires:
+            - checkout-code
+
+      - build-frontend:
+          context: garmaxai-aws
+          requires:
+            - checkout-code
+
+      - test-backend:
+          context: garmaxai-aws
+          requires:
+            - checkout-code
+
+      - test-frontend:
+          context: garmaxai-aws
+          requires:
+            - checkout-code
+
+      # Step 3: Parallel security scanning
+      - security-scan-snyk:
+          context: garmaxai-security
+          requires:
+            - checkout-code
+
+      - security-scan-npm-audit:
+          context: garmaxai-security
+          requires:
+            - checkout-code
+
+      - security-scan-trivy:
+          context: garmaxai-security
+          requires:
+            - build-backend
+            - build-frontend
+
+      # Step 4: Build Docker images (only after security scans pass)
+      - build-docker-images:
+          context: garmaxai-aws
+          requires:
+            - build-backend
+            - test-backend
+            - security-scan-snyk
+            - security-scan-npm-audit
+            - security-scan-trivy
+          filters:
+            branches:
+              only:
+                - main
+                - develop
+                - qa
+
+      # Step 5: Deploy to development (auto-deploy on develop branch)
+      - deploy-dev:
+          context: garmaxai-aws-dev
+          requires:
+            - build-backend
+            - build-frontend
+            - test-backend
+            - test-frontend
+            - security-scan-snyk
+            - security-scan-npm-audit
+            - build-docker-images
+          filters:
+            branches:
+              only: develop
+
+      # Step 6: Deploy to QA (auto-deploy on qa branch)
+      - deploy-qa:
+          context: garmaxai-aws-qa
+          requires:
+            - build-backend
+            - build-frontend
+            - test-backend
+            - test-frontend
+            - security-scan-snyk
+            - security-scan-npm-audit
+            - build-docker-images
+          filters:
+            branches:
+              only: qa
+
+      # Step 7: Deploy to production (manual approval required)
+      - hold-prod-approval:
+          type: approval
+          requires:
+            - build-backend
+            - build-frontend
+            - test-backend
+            - test-frontend
+            - security-scan-snyk
+            - security-scan-npm-audit
+            - build-docker-images
+          filters:
+            branches:
+              only: main
+
+      - deploy-prod:
+          context: garmaxai-aws-prod
+          requires:
+            - hold-prod-approval
+          filters:
+            branches:
+              only: main

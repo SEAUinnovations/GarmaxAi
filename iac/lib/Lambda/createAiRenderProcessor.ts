@@ -146,6 +146,7 @@ export default function createAiRenderProcessor(
   );
   
   // DynamoDB/SSM permissions for circuit breaker and quota tracking
+  // Also includes Gemini service account credentials and budget tracking
   aiRenderProcessor.addToRolePolicy(
     new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -156,8 +157,18 @@ export default function createAiRenderProcessor(
         'ssm:PutParameter',
       ],
       resources: [
+        // Existing render quotas table
         `arn:aws:dynamodb:${stack.region}:${stack.account}:table/GarmaxAi-RenderQuotas-${stage}`,
+        
+        // Gemini budget tracking table
+        `arn:aws:dynamodb:${stack.region}:${stack.account}:table/gemini_budget_tracking_${stage}`,
+        
+        // Existing SSM parameters for render configuration
         `arn:aws:ssm:${stack.region}:${stack.account}:parameter/garmaxai/${stage}/render/*`,
+        
+        // Gemini-specific SSM parameters (hierarchical path structure)
+        // Includes: service-account-json, traffic-percent, batch-settings, etc.
+        `arn:aws:ssm:${stack.region}:${stack.account}:parameter/garmaxai/gemini/${stage}/*`,
       ],
     })
   );

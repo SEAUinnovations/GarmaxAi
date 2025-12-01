@@ -9,9 +9,41 @@ export const users = mysqlTable("users", {
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  trialExpiresAt: timestamp("trial_expires_at"),
+  trialStatus: varchar("trial_status", { length: 20 }).default("active"), // 'active', 'expired', 'converted', null
+  subscriptionTier: varchar("subscription_tier", { length: 20 }).notNull().default("free"), // 'free', 'studio', 'pro'
   credits: int("credits").notNull().default(10),
+  creditsRemaining: int("credits_remaining").notNull().default(10),
+  
+  // Physical profile fields
+  heightFeet: int("height_feet"), // 4-7 feet
+  heightInches: int("height_inches"), // 0-11 inches
+  ageRange: varchar("age_range", { length: 20 }), // '18-25', '26-35', '36-45', '46-55', '55+'
+  gender: varchar("gender", { length: 20 }), // 'male', 'female', 'non-binary', 'prefer-not-to-say'
+  bodyType: varchar("body_type", { length: 20 }), // 'slim', 'average', 'athletic', 'plus-size'
+  ethnicity: text("ethnicity"), // Free text for inclusive representation
+  
+  // Profile completion tracking
+  profileCompleted: boolean("profile_completed").notNull().default(false),
+  profileCompletedAt: timestamp("profile_completed_at"),
+  
+  // Preferences
+  stylePreferences: json("style_preferences"), // Array of preferred styles
+  measurementSystem: varchar("measurement_system", { length: 10 }).notNull().default("imperial"), // 'imperial' or 'metric'
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
+// Temporary users table for email verification
+export const tempUsers = mysqlTable("temp_users", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  email: text("email").notNull().unique(),
+  verificationCode: varchar("verification_code", { length: 10 }).notNull(),
+  verificationExpiry: timestamp("verification_expiry").notNull(),
+  trialExpiresAt: timestamp("trial_expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 // Generations table - stores AI image generation requests
@@ -117,6 +149,42 @@ export const tryonSessions = mysqlTable("tryon_sessions", {
   completedAt: timestamp("completed_at"),
 });
 
+// Gemini Batch Jobs table
+// Tracks batch image generation requests submitted to Google Gemini Imagen 3 API
+// Used for cost optimization by grouping multiple render requests into single API calls
+export const geminiBatchJobs = mysqlTable("gemini_batch_jobs", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  
+  // User and batch identification
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  batchId: text("batch_id").notNull(), // Gemini API batch identifier
+  
+  // Request tracking - JSON array of request IDs included in this batch
+  // Example: ["req-123", "req-456", "req-789"]
+  requestIds: json("request_ids").$type<string[]>().notNull(),
+  
+  // Batch status lifecycle: pending -> submitted -> processing -> completed | failed
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  
+  // Timestamps for tracking batch progression
+  submittedAt: timestamp("submitted_at"), // When batch was sent to Gemini API
+  completedAt: timestamp("completed_at"), // When all images in batch finished processing
+  
+  // Gemini API details
+  geminiBatchUrl: text("gemini_batch_url"), // URL for polling batch status
+  
+  // Cost tracking for budget controls
+  costUsd: decimal("cost_usd", { precision: 10, scale: 4 }), // Actual cost from Gemini API
+  imageCount: int("image_count").notNull(), // Number of images in batch
+  
+  // Error tracking
+  errorMessage: text("error_message"), // Error details if batch fails
+  retryCount: int("retry_count").notNull().default(0), // Number of retry attempts
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -167,3 +235,5 @@ export type InsertGarmentItem = typeof garmentItems.$inferInsert;
 export type VirtualWardrobe = typeof virtualWardrobe.$inferSelect;
 export type TryonSession = typeof tryonSessions.$inferSelect;
 export type InsertTryonSession = typeof tryonSessions.$inferInsert;
+export type GeminiBatchJob = typeof geminiBatchJobs.$inferSelect;
+export type InsertGeminiBatchJob = typeof geminiBatchJobs.$inferInsert;

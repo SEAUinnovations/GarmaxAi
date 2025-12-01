@@ -1,8 +1,11 @@
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Check, Sparkles, Zap, Globe, Camera } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useAuth } from "@/contexts/AuthContext";
+import { TryonOnboardingModal } from "@/components/TryonOnboardingModal";
 
 // Import assets
 import heroImg from "@assets/generated_images/futuristic_fashion_editorial_hero_shot.png";
@@ -11,6 +14,25 @@ import port2 from "@assets/generated_images/commercial_fashion_portrait_2.png";
 import port3 from "@assets/generated_images/commercial_fashion_portrait_3.png";
 
 export default function Home() {
+  const [, navigate] = useLocation();
+  const { isAuthenticated, user } = useAuth();
+  const [showTrialModal, setShowTrialModal] = useState(false);
+
+  const handleStartTrial = () => {
+    if (isAuthenticated) {
+      // If already authenticated, go to dashboard
+      navigate('/dashboard');
+    } else {
+      // Show trial onboarding modal
+      setShowTrialModal(true);
+    }
+  };
+
+  const handleTrialSuccess = () => {
+    // Navigate to dashboard after successful trial signup
+    navigate('/dashboard');
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <Navbar />
@@ -43,11 +65,21 @@ export default function Home() {
               AI-powered virtual try-on technology. Upload your photos and see how garments fit instantly with advanced AI garment fitting.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link href="/dashboard">
-                <Button size="lg" className="bg-white text-black hover:bg-accent hover:text-accent-foreground text-base px-8 h-14 rounded-full transition-all duration-300">
+              {isAuthenticated ? (
+                <Link href="/dashboard">
+                  <Button size="lg" className="bg-white text-black hover:bg-accent hover:text-accent-foreground text-base px-8 h-14 rounded-full transition-all duration-300">
+                    Go to Dashboard <ArrowRight className="ml-2 w-4 h-4" />
+                  </Button>
+                </Link>
+              ) : (
+                <Button 
+                  size="lg" 
+                  className="bg-white text-black hover:bg-accent hover:text-accent-foreground text-base px-8 h-14 rounded-full transition-all duration-300"
+                  onClick={handleStartTrial}
+                >
                   Start Generating <ArrowRight className="ml-2 w-4 h-4" />
                 </Button>
-              </Link>
+              )}
               <Button variant="outline" size="lg" className="border-white/20 hover:bg-white/10 text-base px-8 h-14 rounded-full backdrop-blur-sm">
                 View Gallery
               </Button>
@@ -163,11 +195,21 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-r from-accent/20 to-purple-900/20 blur-3xl opacity-30" />
         <div className="container mx-auto px-6 relative z-10 text-center">
           <h2 className="text-5xl md:text-7xl font-serif font-bold mb-8">Ready to <br/>try it on?</h2>
-          <Link href="/dashboard">
-            <Button size="lg" className="bg-accent text-accent-foreground hover:bg-white hover:text-black text-lg h-16 px-10 rounded-full transition-all transform hover:scale-105">
+          {isAuthenticated ? (
+            <Link href="/dashboard">
+              <Button size="lg" className="bg-accent text-accent-foreground hover:bg-white hover:text-black text-lg h-16 px-10 rounded-full transition-all transform hover:scale-105">
+                Go to Dashboard
+              </Button>
+            </Link>
+          ) : (
+            <Button 
+              size="lg" 
+              className="bg-accent text-accent-foreground hover:bg-white hover:text-black text-lg h-16 px-10 rounded-full transition-all transform hover:scale-105"
+              onClick={handleStartTrial}
+            >
               Start Free Trial
             </Button>
-          </Link>
+          )}
         </div>
       </section>
 
@@ -182,6 +224,13 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Trial Onboarding Modal */}
+      <TryonOnboardingModal 
+        isOpen={showTrialModal} 
+        onClose={() => setShowTrialModal(false)}
+        onSuccess={handleTrialSuccess}
+      />
     </div>
   );
 }

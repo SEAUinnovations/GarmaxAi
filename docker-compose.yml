@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # MySQL 8.0 Database for local development/testing
+  mysql:
+    image: mysql:8.0
+    container_name: garmaxai-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: garmaxai
+      MYSQL_USER: garmaxuser
+      MYSQL_PASSWORD: garmaxpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/docker-init:/docker-entrypoint-initdb.d
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - garmaxai-network
+
+  # Redis for caching (critical for cost reduction)
+  redis:
+    image: redis:7-alpine
+    container_name: garmaxai-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - garmaxai-network
+
+  # LocalStack for AWS service mocking (S3, SQS, EventBridge)
+  localstack:
+    image: localstack/localstack:latest
+    container_name: garmaxai-localstack
+    environment:
+      - SERVICES=s3,sqs,events,dynamodb,ssm
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    ports:
+      - "4566:4566"  # LocalStack gateway
+      - "4571:4571"  # S3
+    volumes:
+      - localstack_data:/tmp/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./scripts/localstack-init:/etc/localstack/init/ready.d
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - garmaxai-network
+
+  # Adminer for database management UI (optional, for debugging)
+  adminer:
+    image: adminer:latest
+    container_name: garmaxai-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    depends_on:
+      - mysql
+    networks:
+      - garmaxai-network
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  localstack_data:
+    driver: local
+
+networks:
+  garmaxai-network:
+    driver: bridge

@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { storage } from "../storage";
 import { logger } from "../utils/winston-logger";
 import type { Subscription, SubscriptionPlan } from "@shared/schema";
+import * as subscriptionDB from "./subscriptionDatabase";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2025-11-17.clover",
@@ -32,14 +33,16 @@ export class SubscriptionService {
    */
   async getAvatarLimit(userId: string): Promise<number> {
     try {
-      const subscription = await storage.getActiveSubscription?.(userId);
+      const activeSubscription = await subscriptionDB.getActiveSubscription(userId);
       
-      if (!subscription) {
-        return 1; // Free tier: 1 avatar
+      if (activeSubscription) {
+        logger.info(`Avatar limit for user ${userId}: ${activeSubscription.plan.avatarLimit}`, "SubscriptionService");
+        return activeSubscription.plan.avatarLimit;
       }
-
-      const plan = await storage.getSubscriptionPlan?.(subscription.planId);
-      return plan?.avatarLimit || 1;
+      
+      // No active subscription - return free tier limit
+      logger.info(`No active subscription for user ${userId} - using free tier`, "SubscriptionService");
+      return 1; // Free tier: 1 avatar
     } catch (error) {
       logger.error(`Failed to get avatar limit: ${error}`, "SubscriptionService");
       return 1;
@@ -51,7 +54,7 @@ export class SubscriptionService {
    */
   async canCreateAvatar(userId: string): Promise<AvatarLimitInfo> {
     try {
-      const currentCount = await storage.getUserAvatarCount?.(userId) || 0;
+      const currentCount = await subscriptionDB.getUserAvatarCount(userId);
       const limit = await this.getAvatarLimit(userId);
       
       return {
@@ -70,28 +73,28 @@ export class SubscriptionService {
    */
   async getSubscriptionInfo(userId: string): Promise<SubscriptionInfo> {
     try {
-      const subscription = await storage.getActiveSubscription?.(userId);
+      const activeSubscription = await subscriptionDB.getActiveSubscription(userId);
       
-      if (!subscription) {
+      if (activeSubscription) {
         return {
-          subscription: null,
-          plan: null,
-          avatarLimit: 1,
-          tryonQuota: 0,
-          tryonQuotaUsed: 0,
-          isActive: false,
+          subscription: activeSubscription.subscription,
+          plan: activeSubscription.plan,
+          avatarLimit: activeSubscription.plan.avatarLimit,
+          tryonQuota: activeSubscription.plan.tryonQuota,
+          tryonQuotaUsed: activeSubscription.subscription.tryonQuotaUsed,
+          isActive: true,
         };
       }
-
-      const plan = await storage.getSubscriptionPlan?.(subscription.planId);
       
+      // No active subscription - return free tier
+      logger.info(`No active subscription for user ${userId} - using free tier`, "SubscriptionService");
       return {
-        subscription,
-        plan: plan || null,
-        avatarLimit: plan?.avatarLimit || 1,
-        tryonQuota: plan?.tryonQuota || 0,
-        tryonQuotaUsed: subscription.tryonQuotaUsed,
-        isActive: subscription.status === "active",
+        subscription: null,
+        plan: null,
+        avatarLimit: 1,
+        tryonQuota: 10, // Free tier gets 10 try-ons per month
+        tryonQuotaUsed: 0,
+        isActive: false,
       };
     } catch (error) {
       logger.error(`Failed to get subscription info: ${error}`, "SubscriptionService");
@@ -114,16 +117,17 @@ export class SubscriptionService {
         throw new Error("User not found");
       }
 
-      // Get or create Stripe customer
-      let customerId = await storage.getStripeCustomerId?.(userId);
+      // Check for existing Stripe customer
+      let customerId = await subscriptionDB.getOrCreateStripeCustomer(userId);
       
       if (!customerId) {
+        // Create new Stripe customer
         const customer = await stripe.customers.create({
           email: user.email,
           metadata: { userId },
         });
         customerId = customer.id;
-        await storage.updateStripeCustomerId?.(userId, customerId);
+        logger.info(`Created Stripe customer ${customerId} for user ${userId}`, "SubscriptionService");
       }
 
       const session = await stripe.checkout.sessions.create({
@@ -162,7 +166,7 @@ export class SubscriptionService {
           break;
         }
         case "invoice.payment_failed": {
-          const invoice = event.data.object as Stripe.Invoice;
+          const invoice = event.data.object as any; // Use any to access Stripe webhook properties
           if (invoice.subscription) {
             await this.handlePaymentFailure(invoice.subscription as string);
           }
@@ -187,13 +191,19 @@ export class SubscriptionService {
     }
 
     const priceId = stripeSubscription.items.data[0]?.price.id;
-    const plan = await storage.getSubscriptionPlanByStripePrice?.(priceId);
-    
-    if (!plan) {
-      throw new Error(`No plan found for Stripe price ${priceId}`);
+    if (!priceId) {
+      throw new Error("No price ID in subscription");
     }
 
-    await storage.upsertSubscription?.({
+    // Get plan from database
+    const plan = await subscriptionDB.getPlanByStripePriceId(priceId);
+    if (!plan) {
+      logger.error(`Plan not found for Stripe price ${priceId}`, "SubscriptionService");
+      throw new Error(`Plan not found for Stripe price ${priceId}`);
+    }
+
+    // Upsert subscription
+    await subscriptionDB.upsertSubscription({
       userId,
       planId: plan.id,
       status: stripeSubscription.status,
@@ -201,20 +211,24 @@ export class SubscriptionService {
       stripeCustomerId: stripeSubscription.customer as string,
       stripeSubscriptionId: stripeSubscription.id,
     });
+
+    logger.info(`Subscription synced for user ${userId}: ${stripeSubscription.id}`, "SubscriptionService");
   }
 
   /**
    * Cancel subscription
    */
   private async cancelSubscription(stripeSubscriptionId: string): Promise<void> {
-    await storage.cancelSubscriptionByStripeId?.(stripeSubscriptionId);
+    await subscriptionDB.cancelSubscription(stripeSubscriptionId);
+    logger.info(`Subscription cancelled: ${stripeSubscriptionId}`, "SubscriptionService");
   }
 
   /**
    * Handle payment failure
    */
   private async handlePaymentFailure(stripeSubscriptionId: string): Promise<void> {
-    await storage.updateSubscriptionStatus?.(stripeSubscriptionId, "past_due");
+    await subscriptionDB.markSubscriptionPastDue(stripeSubscriptionId);
+    logger.warn(`Payment failed for subscription: ${stripeSubscriptionId}`, "SubscriptionService");
   }
 
   /**
@@ -222,8 +236,8 @@ export class SubscriptionService {
    */
   async resetMonthlyQuotas(): Promise<void> {
     try {
-      await storage.resetAllSubscriptionQuotas?.();
-      logger.info("Monthly quotas reset successfully", "SubscriptionService");
+      const resetCount = await subscriptionDB.resetAllMonthlyQuotas();
+      logger.info(`Monthly quotas reset for ${resetCount} active subscriptions`, "SubscriptionService");
     } catch (error) {
       logger.error(`Failed to reset monthly quotas: ${error}`, "SubscriptionService");
       throw error;
@@ -237,10 +251,12 @@ export class SubscriptionService {
     try {
       const info = await this.getSubscriptionInfo(userId);
       
+      // Free tier users always have quota (no subscription needed)
       if (!info.isActive) {
-        return false;
+        return info.tryonQuotaUsed < info.tryonQuota;
       }
 
+      // Paid users check their subscription quota
       return info.tryonQuotaUsed < info.tryonQuota;
     } catch (error) {
       logger.error(`Failed to check try-on quota: ${error}`, "SubscriptionService");
@@ -253,7 +269,7 @@ export class SubscriptionService {
    */
   async incrementTryonQuota(userId: string): Promise<void> {
     try {
-      await storage.incrementSubscriptionQuota?.(userId);
+      await subscriptionDB.incrementTryonQuota(userId);
       logger.info(`Try-on quota incremented for user ${userId}`, "SubscriptionService");
     } catch (error) {
       logger.error(`Failed to increment quota: ${error}`, "SubscriptionService");

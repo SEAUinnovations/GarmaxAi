@@ -63,6 +63,7 @@ export default function createTryonEventBus(
   billingQueue?: sqs.Queue,
   tryonProcessor?: lambda.Function,
   aiRenderProcessor?: lambda.Function,
+  geminiBatchQueue?: sqs.Queue,
 ) {
   // Create custom EventBridge bus for try-on event coordination
   // Isolated from default bus to avoid cross-contamination and enable targeted monitoring
@@ -203,6 +204,54 @@ export default function createTryonEventBus(
     // DISABLED: Uncomment to enable direct Lambda invocation instead of SQS
     // Trade-off: Lower latency vs. reduced reliability and traffic handling
     // processingRule.addTarget(new targets.LambdaFunction(tryonProcessor));
+  }
+
+  // RULE 5: Gemini Batch Events → Gemini Batch Processing Queue
+  // ===========================================================
+  // Routes Gemini batch completion events to SQS for reliable result distribution.
+  // 
+  // Event Source: batchImageService after Gemini batch completes
+  // Event Pattern: source='garmax.gemini', detailType matches batch lifecycle events
+  // Target: SQS FIFO queue for ordered processing
+  // 
+  // Event Types:
+  // - gemini.batch.submitted: Batch sent to Gemini API (for tracking)
+  // - gemini.batch.completed: All images ready (triggers result distribution)
+  // - gemini.batch.failed: Batch failed (triggers fallback to PhotoMaker/SDXL)
+  // 
+  // Why SQS instead of direct Lambda?
+  // - Reliable delivery with automatic retries
+  // - Buffering during Lambda throttling or cold starts
+  // - Dead Letter Queue for failed result distribution
+  // - Ordered processing ensures batch results distributed in sequence
+  // - Decouples batch polling from result distribution
+  // 
+  // Message Flow:
+  // 1. Gemini batch completes → batchImageService polls status
+  // 2. Service publishes gemini.batch.completed event
+  // 3. EventBridge routes to this queue
+  // 4. Lambda consumes message and distributes results to users
+  // 5. Individual users notified via WebSocket or existing notification system
+  if (geminiBatchQueue) {
+    const geminiBatchRule = new events.Rule(stack, `GeminiBatchEventsRule-${stage}`, {
+      eventBus: tryonEventBus,
+      ruleName: `GarmaxAi-GeminiBatchEvents-${stage}`,
+      description: 'Route Gemini batch lifecycle events to processing queue for result distribution',
+      eventPattern: {
+        source: ['garmax.gemini'],
+        detailType: [
+          'gemini.batch.submitted',    // Batch tracking
+          'gemini.batch.completed',    // Result distribution
+          'gemini.batch.failed',       // Error handling and fallback
+        ],
+      },
+    });
+
+    // Route to SQS with message grouping for ordered processing
+    // All Gemini batch events use same group to maintain order
+    geminiBatchRule.addTarget(new targets.SqsQueue(geminiBatchQueue, {
+      messageGroupId: 'gemini-batches', // FIFO ordering for batch results
+    }));
   }
 
   // Output event bus ARN
