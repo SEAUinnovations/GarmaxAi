@@ -37,10 +37,10 @@ export default function Home() {
               The Future of Fashion Photography
             </span>
             <h1 className="text-6xl md:text-8xl lg:text-9xl font-serif font-bold leading-none tracking-tighter mb-6 text-balance">
-              Model <span className="text-gradient-accent italic">Me</span>
+              Garmax<span className="text-gradient-accent italic"></span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto mb-10 leading-relaxed">
-              Generate hyper-realistic fashion models instantly. No studio, no casting, just pure creativity powered by advanced AI.
+              AI-powered virtual try-on technology. Upload your photos and see how garments fit instantly with advanced AI garment fitting.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link href="/dashboard">
@@ -112,9 +112,9 @@ export default function Home() {
         <div className="container mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             {[
-              { icon: Sparkles, title: "Hyper Realistic", desc: "Indistinguishable from real photography. Our AI captures skin texture, lighting, and emotion perfectly." },
-              { icon: Zap, title: "Instant Turnaround", desc: "Why wait weeks for a photoshoot? Generate full campaigns in minutes." },
-              { icon: Globe, title: "Infinite Variety", desc: "Control every aspect: pose, lighting, clothing, ethnicity, and environment." },
+              { icon: Sparkles, title: "Perfect Fit", desc: "Advanced SMPL pose estimation ensures garments fit naturally on your body shape and posture." },
+              { icon: Zap, title: "Instant Results", desc: "Upload your photo and see how any garment looks on you in seconds, not hours." },
+              { icon: Globe, title: "Any Garment", desc: "Try on clothes, dresses, accessories, and more with AI-powered virtual fitting technology." },
             ].map((feature, i) => (
               <div key={i} className="p-8 rounded-2xl bg-white/5 border border-white/5 hover:border-accent/30 transition-colors group">
                 <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-6 text-white group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
@@ -134,9 +134,9 @@ export default function Home() {
           <h2 className="text-4xl md:text-5xl font-serif font-bold mb-16">Simple Pricing</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {[
-              { name: "Starter", price: "29", features: ["500 Credits / mo", "Standard Resolution", "Personal License"] },
-              { name: "Pro", price: "99", features: ["5,000 Credits / mo", "4K Resolution", "Commercial License", "Priority Generation"], active: true },
-              { name: "Agency", price: "299", features: ["Unlimited Credits", "8K Resolution", "API Access", "Dedicated Support"] },
+              { name: "Studio", price: "29", features: ["50 Try-Ons / mo", "25 Photo Uploads", "HD Resolution", "Personal License"] },
+              { name: "Pro", price: "79", features: ["200 Try-Ons / mo", "Unlimited Photos", "4K Resolution", "Commercial License", "Priority Processing"], active: true },
+              { name: "Agency", price: "299", features: ["Unlimited Try-Ons", "8K Resolution", "API Access", "Custom Branding", "Dedicated Support"] },
             ].map((plan, i) => (
               <div key={i} className={`p-8 rounded-2xl border flex flex-col items-center relative ${plan.active ? 'bg-white/5 border-accent' : 'bg-transparent border-white/10'}`}>
                 {plan.active && <span className="absolute -top-3 bg-accent text-accent-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">Popular</span>}
@@ -162,7 +162,7 @@ export default function Home() {
       <section className="py-24 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-accent/20 to-purple-900/20 blur-3xl opacity-30" />
         <div className="container mx-auto px-6 relative z-10 text-center">
-          <h2 className="text-5xl md:text-7xl font-serif font-bold mb-8">Ready to <br/>create magic?</h2>
+          <h2 className="text-5xl md:text-7xl font-serif font-bold mb-8">Ready to <br/>try it on?</h2>
           <Link href="/dashboard">
             <Button size="lg" className="bg-accent text-accent-foreground hover:bg-white hover:text-black text-lg h-16 px-10 rounded-full transition-all transform hover:scale-105">
               Start Free Trial
@@ -174,13 +174,11 @@ export default function Home() {
       <footer className="border-t border-white/10 py-12 bg-black">
         <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center">
           <div className="flex items-center gap-2 mb-4 md:mb-0">
-             <div className="bg-white text-black p-1 rounded-sm">
-              <Camera size={16} strokeWidth={2.5} />
-            </div>
-            <span className="font-serif font-bold">Model Me</span>
+             <img src="/LOGOSVG.svg" alt="Garmax" className="w-6 h-6" />
+            <span className="font-serif font-bold">Garmax</span>
           </div>
           <div className="text-sm text-muted-foreground">
-            © 2025 Model Me Inc. All rights reserved.
+            © 2025 SEAU Inc. All rights reserved.
           </div>
         </div>
       </footer>

@@ -35,11 +35,9 @@ export default function Dashboard() {
       {/* Sidebar */}
       <aside className="w-64 border-r border-white/10 bg-card flex-col hidden md:flex">
         <div className="p-6 border-b border-white/10">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="bg-white text-black p-1 rounded-sm group-hover:bg-accent transition-colors">
-              <Camera size={20} strokeWidth={2.5} />
-            </div>
-            <span className="font-serif text-xl font-bold">Model Me</span>
+          <Link href="/" className="flex items-center gap-3 group">
+            <img src="/LOGOSVG.svg" alt="Garmax" className="w-6 h-6 group-hover:scale-110 transition-transform" />
+            <span className="font-serif text-xl font-bold">Garmax</span>
           </Link>
         </div>
         <nav className="flex-1 p-4 space-y-2">

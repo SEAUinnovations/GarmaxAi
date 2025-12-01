@@ -74,15 +74,13 @@ export default function Register() {
       >
         {/* Header */}
         <div className="mb-12 text-center">
-          <Link href="/" className="inline-flex items-center gap-2 group mb-8">
-            <div className="bg-white text-black p-2 rounded-sm group-hover:bg-accent transition-colors">
-              <Camera size={24} strokeWidth={2.5} />
-            </div>
-            <span className="font-serif text-3xl font-bold tracking-tight">Model Me</span>
+          <Link href="/" className="inline-flex items-center gap-3 group mb-8">
+            <img src="/LOGOSVG.svg" alt="Garmax" className="w-10 h-10 group-hover:scale-110 transition-transform" />
+            <span className="font-serif text-3xl font-bold tracking-tight">Garmax</span>
           </Link>
 
           <h1 className="text-4xl md:text-5xl font-serif font-bold mb-3">Create Account</h1>
-          <p className="text-muted-foreground text-lg">Join us to start creating amazing models</p>
+          <p className="text-muted-foreground text-lg">Join us to start virtual try-ons with AI</p>
         </div>
 
         {/* Registration Form Card */}

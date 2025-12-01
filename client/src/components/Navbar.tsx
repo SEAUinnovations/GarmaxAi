@@ -23,11 +23,9 @@ export function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-background/80 backdrop-blur-md">
       <div className="container mx-auto px-6 h-20 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="bg-white text-black p-1 rounded-sm group-hover:bg-accent transition-colors">
-            <Camera size={20} strokeWidth={2.5} />
-          </div>
-          <span className="font-serif text-2xl font-bold tracking-tight">Model Me</span>
+        <Link href="/" className="flex items-center gap-3 group">
+            <img src="/LOGOSVG.svg" alt="Garmax" className="w-8 h-8 group-hover:scale-110 transition-transform" />
+          <span className="font-serif text-2xl font-bold tracking-tight">Garmax</span>
         </Link>
 
         {/* Desktop Nav */}

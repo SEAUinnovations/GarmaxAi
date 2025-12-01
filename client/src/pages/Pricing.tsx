@@ -13,17 +13,17 @@ export default function Pricing() {
     {
       id: "free",
       name: "Free",
-      description: "Try the basics with limited features",
+      description: "Get started with photo-based virtual try-ons",
       price: { monthly: 0, annual: 0 },
       icon: Sparkles,
       iconColor: "text-white/40",
       features: [
-        { text: "1 custom avatar", included: true },
-        { text: "0 try-ons per month", included: true },
-        { text: "Demo avatar access", included: true },
+        { text: "3 photo uploads", included: true },
+        { text: "5 try-ons per month", included: true },
+        { text: "Demo photos available", included: true },
         { text: "Buy credits as needed", included: true },
         { text: "SD quality (512×512)", included: true },
-        { text: "Multiple avatars", included: false },
+        { text: "Multiple photos", included: false },
         { text: "Monthly try-on quota", included: false },
         { text: "HD/4K rendering", included: false },
       ],
@@ -38,8 +38,8 @@ export default function Pricing() {
       icon: Zap,
       iconColor: "text-accent",
       features: [
-        { text: "3 custom avatars", included: true },
-        { text: "25 try-ons per month", included: true },
+        { text: "25 photo uploads", included: true },
+        { text: "50 try-ons per month", included: true },
         { text: "All quality levels (SD/HD/4K)", included: true },
         { text: "Priority processing", included: true },
         { text: "Save to wardrobe", included: true },
@@ -59,8 +59,8 @@ export default function Pricing() {
       icon: Crown,
       iconColor: "text-yellow-400",
       features: [
-        { text: "5 custom avatars", included: true },
-        { text: "100 try-ons per month", included: true },
+        { text: "Unlimited photo uploads", included: true },
+        { text: "200 try-ons per month", included: true },
         { text: "All quality levels (SD/HD/4K)", included: true },
         { text: "Instant processing (no queue)", included: true },
         { text: "Advanced wardrobe management", included: true },
@@ -125,7 +125,7 @@ export default function Pricing() {
           Choose Your Plan
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-          Unlock the power of 3D virtual try-ons with flexible pricing
+          Transform your photos into virtual try-on experiences with AI
         </p>
 
         {/* Billing Toggle */}
@@ -329,12 +329,12 @@ export default function Pricing() {
             <div className="space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-white/10">
                 <div>
-                  <p className="font-medium">Avatar Creation</p>
+                  <p className="font-medium">Photo Upload & Processing</p>
                   <p className="text-sm text-muted-foreground">
-                    Custom 3D avatar with Ready Player Me
+                    SMPL pose estimation and photo preparation
                   </p>
                 </div>
-                <Badge variant="outline">5 credits</Badge>
+                <Badge variant="outline">2 credits</Badge>
               </div>
 
               <div className="flex items-center justify-between pb-3 border-b border-white/10">
