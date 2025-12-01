@@ -3,6 +3,7 @@ import multer from "multer";
 import { requireAuth } from "../middleware/auth";
 import {
   uploadGarment,
+  analyzeGarmentFromUrl,
   analyzeGarmentUrl,
   getUserWardrobe,
   updateGarment,
@@ -30,7 +31,8 @@ garmentRouter.use(requireAuth);
 
 // Garment routes
 garmentRouter.post("/upload", upload.single("image"), uploadGarment);
-garmentRouter.post("/analyze-url", analyzeGarmentUrl);
+garmentRouter.post("/analyze-url", analyzeGarmentFromUrl);
+garmentRouter.post("/analyze-garment-url", analyzeGarmentUrl);
 garmentRouter.get("/wardrobe", getUserWardrobe);
 garmentRouter.patch("/:garmentId", updateGarment);
 garmentRouter.delete("/:garmentId", deleteGarment);

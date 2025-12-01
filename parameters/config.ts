@@ -37,6 +37,35 @@ export const env: {
     'us-west-2': { id: 'PLACEHOLDER_VPC_ID' },
   },
   STAGE: 'PLACEHOLDER_STAGE',
+  
+  // AI Rendering Provider Configuration
+  RENDER_PROVIDER: 'replicate', // 'replicate' | 'bedrock' | 'ecs'
+  ALLOW_BEDROCK_FAILOVER: false, // Feature gate - OFF by default
+  BEDROCK_MAX_FAILOVER_PER_MIN: '3', // Circuit breaker limit
+  BEDROCK_DAILY_BUDGET_USD: '50', // Daily spend cap for failover
+  
+  // User Quotas and Limits
+  MAX_RENDERS_PER_USER_DAILY: '25', // Per-user daily render limit
+  MAX_TRYONS_PER_USER_DAILY: '100', // Per-user daily try-on limit
+  
+  // Feature Flags for Optional Components
+  ENABLE_TRYON_PIPELINE: true, // Core try-on functionality
+  ENABLE_RENDER_PROCESSOR: true, // AI rendering pipeline
+  ENABLE_ECS_HEAVY_JOBS: false, // ECS for compute-intensive SMPL processing
+  
+  // SMPL Processing Configuration
+  SMPL_PROCESSING_MODE: 'LAMBDA', // 'LAMBDA' | 'ECS' - Processing mode
+  ECS_CLUSTER_NAME: '', // Will be set to cluster name when ECS is enabled
+  ECS_TASK_DEFINITION: '', // Will be set to task definition ARN
+  ECS_SUBNETS: [], // Private subnet IDs for ECS tasks
+  
+  // ECS Cost Optimization
+  ECS_ENABLE_SPOT_INSTANCES: true, // Use Spot instances for 70% cost savings
+  ECS_MAX_CONCURRENT_TASKS: 5, // Maximum concurrent SMPL processing tasks
+  ECS_TASK_TIMEOUT_MINUTES: 10, // Maximum processing time per task
+  
+  // Event Bus Configuration
+  EVENT_BUS_NAME: undefined, // Will be set to `GarmaxAi-Tryon-${STAGE}`
   environmentVariables_1: {
     secrets_1: {
       snapshotARN: 'PLACEHOLDER_SNAPSHOT_ARN',

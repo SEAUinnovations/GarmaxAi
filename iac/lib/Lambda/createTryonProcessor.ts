@@ -1,19 +1,31 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Stack } from 'aws-cdk-lib';
 import { IVpc } from 'aws-cdk-lib/aws-ec2';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { env } from '../../../parameters/config';
+
+interface CreateTryonProcessorProps {
+  uploadsBucket: s3.Bucket;
+  guidanceBucket: s3.Bucket;
+  rendersBucket: s3.Bucket;
+  smplAssetsBucket?: s3.Bucket;
+  vpc?: IVpc;
+}
 
 export default function createTryonProcessor(
   stack: Stack,
   stage: string,
-  vpc?: IVpc,
+  props: CreateTryonProcessorProps,
 ) {
-  // Lambda execution role
+  const { uploadsBucket, guidanceBucket, rendersBucket, smplAssetsBucket, vpc } = props;
+  
+  // Lambda execution role with scoped permissions
   const tryonProcessorRole = new iam.Role(stack, `TryonProcessorRole-${stage}`, {
     assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-    description: 'Execution role for Try-On processor Lambda',
+    description: 'Execution role for Try-On processor Lambda with scoped S3 access',
   });
 
   // Attach basic Lambda execution policy
@@ -28,52 +40,51 @@ export default function createTryonProcessor(
     );
   }
 
-  // Add permissions for S3, Rekognition, Secrets Manager
-  tryonProcessorRole.addToPolicy(
-    new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        's3:GetObject',
-        's3:PutObject',
-        's3:DeleteObject',
-      ],
-      resources: [
-        `arn:aws:s3:::${env.S3_BUCKET || 'user-uploads'}/*`,
-        `arn:aws:s3:::tryon-renders/*`,
-      ],
-    })
-  );
+  // Scoped S3 permissions for try-on processing
+  // READ: uploads bucket for user photos and garment references
+  uploadsBucket.grantRead(tryonProcessorRole, 'avatars/*');
+  uploadsBucket.grantRead(tryonProcessorRole, 'garments/*');
+  
+  // WRITE: guidance bucket for SMPL-generated assets
+  guidanceBucket.grantWrite(tryonProcessorRole, 'depth/*');
+  guidanceBucket.grantWrite(tryonProcessorRole, 'normals/*');
+  guidanceBucket.grantWrite(tryonProcessorRole, 'poses/*');
+  guidanceBucket.grantWrite(tryonProcessorRole, 'segments/*');
+  guidanceBucket.grantWrite(tryonProcessorRole, 'prompts/*');
+  
+  // WRITE: renders bucket for preview generation
+  rendersBucket.grantWrite(tryonProcessorRole, 'previews/*');
+  rendersBucket.grantWrite(tryonProcessorRole, 'processing/*');
+  
+  // READ: SMPL assets bucket (only if processing locally, not via ECS)
+  if (smplAssetsBucket) {
+    smplAssetsBucket.grantRead(tryonProcessorRole, 'models/*');
+    smplAssetsBucket.grantRead(tryonProcessorRole, 'weights/*');
+    smplAssetsBucket.grantRead(tryonProcessorRole, 'configs/*');
+  }
 
+  // EventBridge permissions for publishing render requests
   tryonProcessorRole.addToPolicy(
     new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
-      actions: [
-        'rekognition:DetectLabels',
-        'rekognition:DetectText',
-      ],
-      resources: ['*'],
-    })
-  );
-
-  tryonProcessorRole.addToPolicy(
-    new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        'secretsmanager:GetSecretValue',
-      ],
-      resources: ['*'], // Narrow this down in production
-    })
-  );
-
-  tryonProcessorRole.addToPolicy(
-    new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        'events:PutEvents',
-      ],
+      actions: ['events:PutEvents'],
       resources: [
         `arn:aws:events:${stack.region}:${stack.account}:event-bus/GarmaxAi-Tryon-${stage}`,
       ],
+    })
+  );
+  
+  // CloudWatch metrics for monitoring and budget tracking
+  tryonProcessorRole.addToPolicy(
+    new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['cloudwatch:PutMetricData'],
+      resources: ['*'],
+      conditions: {
+        StringEquals: {
+          'cloudwatch:namespace': ['GarmaxAi/TryOn', 'GarmaxAi/Budget'],
+        },
+      },
     })
   );
 
@@ -88,10 +99,19 @@ export default function createTryonProcessor(
     role: tryonProcessorRole,
     environment: {
       STAGE: stage,
-      S3_BUCKET: env.S3_BUCKET || 'user-uploads',
+      // S3 bucket configurations
+      UPLOADS_BUCKET: uploadsBucket.bucketName,
+      GUIDANCE_BUCKET: guidanceBucket.bucketName,
+      RENDERS_BUCKET: rendersBucket.bucketName,
+      SMPL_ASSETS_BUCKET: smplAssetsBucket?.bucketName || '',
+      // Event and API configurations
       EVENT_BUS_NAME: `GarmaxAi-Tryon-${stage}`,
       DATABASE_URL: process.env.DATABASE_URL || '',
       INTERNAL_API_KEY: process.env.INTERNAL_API_KEY || '',
+      // SMPL processing configuration
+      SMPL_PROCESSING_MODE: env.SMPL_PROCESSING_MODE || 'LAMBDA',
+      ECS_CLUSTER_NAME: env.ECS_CLUSTER_NAME || '',
+      ECS_TASK_DEFINITION: env.ECS_TASK_DEFINITION || '',
     },
     vpc: vpc,
   });

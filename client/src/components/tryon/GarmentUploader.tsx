@@ -25,6 +25,40 @@ export default function GarmentUploader({ onUploadComplete, onClose }: GarmentUp
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Helper function to validate image URL format
+  const isValidImageUrl = (url: string): boolean => {
+    try {
+      const urlObj = new URL(url);
+      return /\.(jpg|jpeg|png|webp|gif)$/i.test(urlObj.pathname) || 
+             url.includes('images') || 
+             url.includes('img') ||
+             /\.(jpg|jpeg|png|webp|gif)/i.test(url);
+    } catch {
+      return false;
+    }
+  };
+
+  // Helper function to test if image URL loads
+  const validateImageUrl = (url: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Image failed to load'));
+      img.src = url;
+    });
+  };
+
+  // Helper function to extract garment name from URL
+  const extractGarmentNameFromUrl = (url: string): string => {
+    try {
+      const urlObj = new URL(url);
+      const filename = urlObj.pathname.split('/').pop() || 'Garment';
+      return filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    } catch {
+      return 'Imported Garment';
+    }
+  };
+
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -105,26 +139,49 @@ export default function GarmentUploader({ onUploadComplete, onClose }: GarmentUp
         setUploadedGarment(mockGarment);
         onUploadComplete?.(mockGarment);
       } else if (uploadMode === "url" && urlInput.trim()) {
-        // TODO: API call for URL analysis
+        // Validate URL format
+        if (!isValidImageUrl(urlInput)) {
+          throw new Error('Please enter a valid image URL');
+        }
+
+        // Test if image loads
+        await validateImageUrl(urlInput);
+        
         setUploadProgress(50);
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        
+        // TODO: Replace with actual API call for garment analysis
+        const response = await fetch('/api/garments/analyze-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl: urlInput })
+        }).catch(() => {
+          // Fallback to mock data if API not available
+          return {
+            json: () => Promise.resolve({
+              id: `garment_${Date.now()}`,
+              name: extractGarmentNameFromUrl(urlInput),
+              imageUrl: urlInput,
+              thumbnailUrl: urlInput,
+              isOverlayable: false,
+              garmentType: "shirt",
+              detectedColor: "#6B7280",
+              confidence: 0.85,
+            })
+          };
+        });
+        
         setUploadProgress(100);
-
-        const mockGarment = {
-          id: `garment_${Date.now()}`,
-          name: "Imported Garment",
-          imageUrl: urlInput,
-          isOverlayable: false,
-          garmentType: "dress",
-          detectedColor: "#EC4899",
-          confidence: 0.87,
-        };
-
-        setUploadedGarment(mockGarment);
-        onUploadComplete?.(mockGarment);
+        const garment = await response.json();
+        
+        setUploadedGarment(garment);
+        onUploadComplete?.(garment);
       }
     } catch (error) {
       console.error("Upload failed:", error);
+      // Show user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed. Please try again.';
+      alert(errorMessage); // Replace with proper toast notification
+      setUploadProgress(0);
     } finally {
       setIsUploading(false);
     }
@@ -256,28 +313,59 @@ export default function GarmentUploader({ onUploadComplete, onClose }: GarmentUp
                   {/* URL Input */}
                   <div className="space-y-2 mb-6">
                     <Label htmlFor="garment-url">Garment Image URL</Label>
-                    <Input
-                      id="garment-url"
-                      type="url"
-                      placeholder="https://example.com/garment.jpg"
-                      value={urlInput}
-                      onChange={(e) => setUrlInput(e.target.value)}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="garment-url"
+                        type="url"
+                        placeholder="https://example.com/garment.jpg or paste any image URL"
+                        value={urlInput}
+                        onChange={(e) => setUrlInput(e.target.value)}
+                        className={cn(
+                          "pr-10",
+                          urlInput && !isValidImageUrl(urlInput) && "border-red-500"
+                        )}
+                      />
+                      {urlInput && isValidImageUrl(urlInput) && (
+                        <Check size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      Paste a direct link to a garment image from any website
+                      Supports JPG, PNG, WebP, GIF from any website. We'll analyze the garment automatically.
                     </p>
+                    {urlInput && !isValidImageUrl(urlInput) && (
+                      <p className="text-xs text-red-400">
+                        Please enter a valid image URL ending in .jpg, .png, .webp, or .gif
+                      </p>
+                    )}
                   </div>
 
-                  {urlInput && (
-                    <div className="rounded-lg overflow-hidden bg-white/5 max-h-64 flex items-center justify-center">
-                      <img
-                        src={urlInput}
-                        alt="URL Preview"
-                        className="max-w-full max-h-64 object-contain"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
+                  {urlInput && isValidImageUrl(urlInput) && (
+                    <div className="space-y-2">
+                      <div className="rounded-lg overflow-hidden bg-white/5 max-h-64 flex items-center justify-center relative">
+                        <img
+                          src={urlInput}
+                          alt="URL Preview"
+                          className="max-w-full max-h-64 object-contain"
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            const parent = img.parentElement;
+                            if (parent) {
+                              parent.innerHTML = `
+                                <div class="text-red-400 text-center p-8">
+                                  <svg class="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                  </svg>
+                                  <p class="text-sm">Failed to load image</p>
+                                  <p class="text-xs text-muted-foreground">Check URL or try a different image</p>
+                                </div>
+                              `;
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground text-center">
+                        Preview: {extractGarmentNameFromUrl(urlInput)}
+                      </div>
                     </div>
                   )}
                 </>
@@ -301,18 +389,22 @@ export default function GarmentUploader({ onUploadComplete, onClose }: GarmentUp
                 </Button>
                 <Button
                   onClick={handleUpload}
-                  disabled={(!selectedFile && !urlInput.trim()) || isUploading}
+                  disabled={
+                    isUploading || 
+                    (uploadMode === "file" && !selectedFile) || 
+                    (uploadMode === "url" && (!urlInput.trim() || !isValidImageUrl(urlInput)))
+                  }
                   className="flex-1 bg-accent text-accent-foreground hover:bg-white hover:text-black"
                 >
                   {isUploading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2" />
-                      Analyzing...
+                      {uploadMode === "url" ? "Loading from URL..." : "Analyzing..."}
                     </>
                   ) : (
                     <>
-                      <Check size={16} className="mr-2" />
-                      Add to Wardrobe
+                      <Sparkles size={16} className="mr-2" />
+                      {uploadMode === "url" ? "Import from URL" : "Analyze & Add"}
                     </>
                   )}
                 </Button>

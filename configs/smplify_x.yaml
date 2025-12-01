@@ -1,0 +1,163 @@
+# SMPLify-X Configuration for Body Mesh Fitting
+# Optimizes SMPL parameters to match detected 2D/3D poses
+
+# Model configuration
+model:
+  name: "SMPLify-X"
+  version: "v1.2"
+  
+  # SMPL model settings
+  smpl_type: "smpl"          # smpl/smplh/smplx
+  gender: "neutral"          # neutral/male/female/mixed
+  use_face: false            # Disable face fitting for privacy
+  use_hands: false           # Disable hand fitting (focus on body)
+  
+  # Model paths (will be loaded from S3 in container)
+  smpl_model_path: "/app/models/smpl"
+  prior_path: "/app/weights/priors"
+  
+# Optimization settings
+optimization:
+  # Optimization stages with different loss weights
+  num_stages: 3
+  
+  # Stage 1: Coarse body pose and shape fitting
+  stage1:
+    iterations: 20
+    learning_rate: 1e-2
+    body_pose_prior_weight: 4.04e-3
+    shape_prior_weight: 5e-3
+    angle_prior_weight: 15.2
+    
+  # Stage 2: Fine-tuned pose optimization
+  stage2:
+    iterations: 30
+    learning_rate: 5e-3
+    body_pose_prior_weight: 4.04e-3
+    shape_prior_weight: 5e-3
+    angle_prior_weight: 15.2
+    pose_consistency_weight: 1e-3
+    
+  # Stage 3: Final refinement with contact constraints
+  stage3:
+    iterations: 10
+    learning_rate: 1e-3
+    body_pose_prior_weight: 4.04e-3
+    shape_prior_weight: 5e-3
+    angle_prior_weight: 15.2
+    contact_loss_weight: 5e-2
+    
+# Loss function configuration
+loss:
+  # Data fitting terms
+  keypoint_2d_weight: 1.0      # 2D keypoint reprojection loss
+  keypoint_3d_weight: 5.0      # 3D keypoint fitting loss (if available)
+  
+  # Regularization terms
+  body_pose_prior_weight: 4.04e-3  # Body pose prior (VPoser)
+  shape_prior_weight: 5e-3         # Shape prior (learned shape space)
+  angle_prior_weight: 15.2         # Joint angle limits
+  
+  # Smoothness terms
+  temporal_consistency_weight: 0.0  # Disabled for single image processing
+  
+  # Contact and penetration
+  contact_loss_weight: 0.0          # Ground contact loss
+  penetration_loss_weight: 0.0      # Self-penetration avoidance
+  
+# Keypoint configuration
+keypoints:
+  # Keypoint types and weights
+  use_2d_keypoints: true
+  use_3d_keypoints: true
+  
+  # Joint confidence thresholds
+  min_confidence: 0.3
+  
+  # Joint groups with different importance weights
+  joint_weights:
+    torso: 1.0      # Chest, shoulders, hips
+    arms: 0.8       # Upper/lower arms
+    legs: 1.0       # Upper/lower legs
+    extremities: 0.5 # Hands, feet (lower weight)
+    
+# Camera model
+camera:
+  # Intrinsic parameters (estimated if not provided)
+  estimate_focal_length: true
+  focal_length_init: 5000.0
+  
+  # Camera pose optimization
+  optimize_camera_translation: true
+  camera_translation_weight: 1e-2
+  
+# Body shape constraints
+shape:
+  # Shape parameter constraints (beta parameters)
+  shape_prior_weight: 5e-3
+  max_shape_deviation: 3.0    # Standard deviations from mean shape
+  
+  # Gender-specific constraints
+  use_gender_prior: true
+  gender_confidence_threshold: 0.7
+  
+# Processing configuration
+processing:
+  device: "cpu"               # Force CPU for Fargate
+  batch_size: 1               # Single image processing
+  
+  # Convergence criteria
+  ftol: 1e-4                  # Function tolerance for convergence
+  gtol: 1e-4                  # Gradient tolerance
+  
+  # Timeout and limits
+  max_total_iterations: 100    # Maximum total optimization iterations
+  max_processing_time: 180     # 3 minutes maximum per optimization
+  
+# Output configuration
+output:
+  # Mesh export settings
+  export_mesh: true
+  mesh_format: "ply"           # ply/obj format
+  
+  # Parameter export
+  export_smpl_params: true     # Export fitted SMPL parameters
+  export_camera_params: true   # Export estimated camera parameters
+  
+  # Visualization (disabled for production)
+  save_fitting_visualization: false
+  
+# Quality assessment
+quality:
+  # Fitting quality metrics
+  compute_fitting_error: true
+  compute_pose_confidence: true
+  
+  # Quality thresholds for result validation
+  max_fitting_error: 50.0      # Pixels - maximum acceptable 2D error
+  min_pose_confidence: 0.6     # Minimum required pose confidence
+  
+  # Outlier detection
+  detect_outlier_poses: true
+  outlier_threshold: 3.0       # Standard deviations for outlier detection
+  
+# Error handling and fallbacks
+error_handling:
+  # Initialization strategies if optimization fails
+  try_multiple_initializations: true
+  num_random_initializations: 3
+  
+  # Fallback to simpler fitting if SMPLify-X fails
+  fallback_to_smpl: true
+  fallback_to_mean_pose: true
+  
+  # Retry configuration
+  max_retries: 2
+  retry_with_relaxed_constraints: true
+  
+# Logging and debugging
+logging:
+  level: "INFO"
+  log_optimization_progress: false  # Disable verbose optimization logs
+  log_fitting_metrics: true         # Log final fitting quality metrics
+  save_intermediate_results: false  # Don't save intermediate optimization steps

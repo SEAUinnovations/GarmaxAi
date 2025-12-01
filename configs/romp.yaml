@@ -1,0 +1,80 @@
+# ROMP (Robust Monocular 3D Human Pose Estimation) Configuration
+# For GarmaxAi virtual try-on SMPL processing pipeline
+
+# Model configuration
+model:
+  name: "ROMP"
+  version: "v1.1"
+  backbone: "hrnet_w32"
+  head_type: "centernet"
+  
+  # Input image preprocessing
+  input_size: [512, 512]  # Width, Height for model input
+  mean: [0.485, 0.456, 0.406]  # ImageNet normalization
+  std: [0.229, 0.224, 0.225]
+  
+  # Detection parameters
+  detection_threshold: 0.3  # Minimum confidence for person detection
+  nms_threshold: 0.5        # Non-maximum suppression threshold
+  max_persons: 1            # Maximum persons to process (single-person try-on)
+  
+# SMPL parameters
+smpl:
+  model_type: "smpl"       # SMPL model type (smpl/smplh/smplx)
+  gender: "neutral"        # Default gender (neutral/male/female)
+  use_face_contour: false  # Disable face for privacy
+  use_hands: false         # Disable hand estimation (not needed for garments)
+  
+# Pose estimation settings
+pose_estimation:
+  # 3D pose confidence thresholds
+  min_pose_confidence: 0.5    # Minimum overall pose confidence
+  min_joint_confidence: 0.3   # Minimum per-joint confidence
+  
+  # Pose refinement
+  enable_refinement: true     # Enable pose refinement step
+  refinement_iterations: 5    # Number of refinement iterations
+  
+  # Temporal consistency (if processing video sequences)
+  enable_temporal_smoothing: false
+  smoothing_window: 5
+  
+# Processing optimization
+processing:
+  device: "cpu"              # Force CPU for Fargate compatibility
+  batch_size: 1              # Process one image at a time
+  num_workers: 0             # Disable multiprocessing for container
+  
+  # Memory optimization
+  enable_half_precision: false  # Keep full precision for accuracy
+  enable_model_caching: true    # Cache model in memory
+  
+  # Timeout settings
+  max_processing_time: 300      # 5 minutes maximum per image
+  
+# Output configuration
+output:
+  # Coordinate system
+  coordinate_system: "camera"  # camera/world coordinates
+  
+  # Export formats
+  export_poses_2d: true       # Export 2D keypoints
+  export_poses_3d: true       # Export 3D poses
+  export_meshes: true         # Export SMPL meshes
+  export_parameters: true     # Export SMPL parameters
+  
+  # Visualization (disabled for production)
+  save_visualization: false
+  visualization_format: "png"
+  
+# Error handling
+error_handling:
+  fallback_to_2d: true        # Use 2D pose if 3D estimation fails
+  retry_on_failure: true      # Retry failed estimations
+  max_retries: 2              # Maximum retry attempts
+  
+# Logging
+logging:
+  level: "INFO"               # DEBUG/INFO/WARNING/ERROR
+  log_pose_confidence: true   # Log confidence scores
+  log_processing_time: true   # Log timing information

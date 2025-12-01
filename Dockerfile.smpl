@@ -1,0 +1,122 @@
+# Multi-stage Dockerfile for SMPL processing container
+# Stage 1: Build environment with development dependencies
+FROM python:3.9-slim as builder
+
+# Set build arguments for customization
+ARG DEBIAN_FRONTEND=noninteractive
+ARG PYTORCH_VERSION=1.13.1
+ARG TORCHVISION_VERSION=0.14.1
+
+# Install system dependencies for building Python packages
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    unzip \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libgcc-s1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment for Python dependencies
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install PyTorch CPU version (Fargate doesn't support GPU)
+RUN pip install --no-cache-dir \
+    torch==${PYTORCH_VERSION}+cpu \
+    torchvision==${TORCHVISION_VERSION}+cpu \
+    -f https://download.pytorch.org/whl/torch_stable.html
+
+# Install SMPL and computer vision dependencies
+RUN pip install --no-cache-dir \
+    opencv-python==4.7.1.72 \
+    numpy==1.24.3 \
+    scipy==1.10.1 \
+    matplotlib==3.7.1 \
+    pillow==9.5.0 \
+    scikit-image==0.20.0 \
+    transforms3d==0.4.1 \
+    trimesh==3.21.7 \
+    pyrender==0.1.45 \
+    smplx==0.1.28 \
+    chumpy==0.70 \
+    opendr==0.78
+
+# Install AWS SDK and other utilities
+RUN pip install --no-cache-dir \
+    boto3==1.26.137 \
+    botocore==1.29.137 \
+    requests==2.31.0 \
+    pyyaml==6.0 \
+    tqdm==4.65.0 \
+    imageio==2.29.0 \
+    psutil==5.9.5
+
+# Stage 2: Runtime environment with minimal dependencies
+FROM python:3.9-slim as runtime
+
+# Set environment variables for production
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH="/app:$PYTHONPATH"
+
+# Install runtime system dependencies only
+RUN apt-get update && apt-get install -y \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libgomp1 \
+    libgcc-s1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Copy virtual environment from builder stage
+COPY --from=builder /opt/venv /opt/venv
+
+# Create application directory and non-root user for security
+RUN groupadd -r smpl && useradd -r -g smpl smpl
+WORKDIR /app
+
+# Create directories for SMPL models and processing
+RUN mkdir -p /app/models/smpl \
+             /app/weights \
+             /app/configs \
+             /app/temp \
+             /app/logs \
+    && chown -R smpl:smpl /app
+
+# Copy application code
+COPY --chown=smpl:smpl smpl-processor/ ./
+
+# Copy SMPL model configurations  
+COPY --chown=smpl:smpl configs/ ./configs/
+
+# Set up health check script
+COPY --chown=smpl:smpl healthcheck.py /app/
+
+# Make health check executable
+RUN chmod +x /app/healthcheck.py
+
+# Switch to non-root user for security
+USER smpl
+
+# Health check configuration
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD python /app/healthcheck.py
+
+# Default command runs the SMPL processing worker
+CMD ["python", "smpl_processor.py"]
+
+# Add labels for container metadata
+LABEL maintainer="GarmaxAi Team" \
+      version="1.0.0" \
+      description="SMPL processing container for virtual try-on" \
+      component="smpl-processor"
