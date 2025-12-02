@@ -6,8 +6,8 @@ import { z } from "zod";
 // Users table
 export const users = mysqlTable("users", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
-  username: text("username").notNull().unique(),
-  email: text("email").notNull().unique(),
+  username: varchar("username", { length: 255 }).notNull().unique(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
   password: text("password").notNull(),
   emailVerified: boolean("email_verified").notNull().default(false),
   trialExpiresAt: timestamp("trial_expires_at"),
@@ -39,7 +39,7 @@ export const users = mysqlTable("users", {
 // Temporary users table for email verification
 export const tempUsers = mysqlTable("temp_users", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
-  email: text("email").notNull().unique(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
   verificationCode: varchar("verification_code", { length: 10 }).notNull(),
   verificationExpiry: timestamp("verification_expiry").notNull(),
   trialExpiresAt: timestamp("trial_expires_at").notNull(),

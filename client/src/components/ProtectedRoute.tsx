@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -14,7 +14,24 @@ export function ProtectedRoute({
   requiresTrialActive = false 
 }: ProtectedRouteProps) {
   const { isAuthenticated, user, isLoading, isTrialExpired } = useAuth();
-  const location = useLocation();
+  const [, navigate] = useLocation();
+
+  // Handle navigation effects at the top level
+  useEffect(() => {
+    if (isLoading) return;
+
+    // Check authentication requirement
+    if (requiresAuth && !isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    // Check trial requirement
+    if (requiresTrialActive && user && isTrialExpired() && user.subscriptionTier === 'free') {
+      navigate('/pricing');
+      return;
+    }
+  }, [isLoading, requiresAuth, isAuthenticated, requiresTrialActive, user, isTrialExpired, navigate]);
 
   // Show loading state while checking authentication
   if (isLoading) {
@@ -25,26 +42,13 @@ export function ProtectedRoute({
     );
   }
 
-  const [, navigate] = useLocation();
-
-  // Check authentication requirement
+  // Don't render children if authentication/trial checks fail
   if (requiresAuth && !isAuthenticated) {
-    // Redirect to login with return url
-    React.useEffect(() => {
-      navigate('/login');
-    }, [navigate]);
     return null;
   }
 
-  // Check trial requirement
-  if (requiresTrialActive && user) {
-    // If trial is expired and user hasn't upgraded, redirect to pricing
-    if (isTrialExpired() && user.subscriptionTier === 'free') {
-      React.useEffect(() => {
-        navigate('/pricing');
-      }, [navigate]);
-      return null;
-    }
+  if (requiresTrialActive && user && isTrialExpired() && user.subscriptionTier === 'free') {
+    return null;
   }
 
   return <>{children}</>;
@@ -55,6 +59,13 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const [, navigate] = useLocation();
 
+  // Handle navigation at the top level
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isLoading, isAuthenticated, navigate]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -63,11 +74,8 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If already authenticated, redirect to dashboard or intended destination
+  // Don't render children if already authenticated (will redirect)
   if (isAuthenticated) {
-    React.useEffect(() => {
-      navigate('/dashboard');
-    }, [navigate]);
     return null;
   }
 

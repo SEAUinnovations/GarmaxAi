@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Mail, Shield, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -21,7 +21,7 @@ export function TryonOnboardingModal({ isOpen, onClose, onSuccess }: TryonOnboar
   const [resendCountdown, setResendCountdown] = useState(0);
 
   // Reset modal state when opening/closing
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       setStep('email');
       setEmail('');
@@ -33,7 +33,7 @@ export function TryonOnboardingModal({ isOpen, onClose, onSuccess }: TryonOnboar
   }, [isOpen]);
 
   // Resend countdown timer
-  React.useEffect(() => {
+  useEffect(() => {
     let timer: NodeJS.Timeout;
     if (resendCountdown > 0) {
       timer = setTimeout(() => setResendCountdown(resendCountdown - 1), 1000);
