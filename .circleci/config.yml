@@ -281,6 +281,8 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
+      - setup_remote_docker:
+          docker_layer_caching: true
       - install-dependencies
       - install-iac-dependencies
       - aws-cli/setup
@@ -303,6 +305,8 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
+      - setup_remote_docker:
+          docker_layer_caching: true
       - install-dependencies
       - install-iac-dependencies
       - aws-cli/setup
@@ -325,6 +329,8 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
+      - setup_remote_docker:
+          docker_layer_caching: true
       - install-dependencies
       - install-iac-dependencies
       - aws-cli/setup
