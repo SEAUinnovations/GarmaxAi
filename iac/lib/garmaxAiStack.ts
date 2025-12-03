@@ -1,7 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import createPythonLambda from './Lambda/createLambda';
-import createApiGateway from './Api/createApiGateway';
 import { getEnvironmentConfig } from '../../parameters/config';
 import { SharedInfraStack } from './stacks/SharedInfraStack';
 import { BackendStack } from './stacks/BackendStack';
@@ -18,12 +16,6 @@ export class GarmaxAiStack extends cdk.Stack {
     const env = getEnvironmentConfig(stage);
     
     const vpc = createVpc(this, this.region || cdk.Stack.of(this).region, env);
-
-    // Create a Python Lambda
-    const pythonLambda = createPythonLambda(this, 'ModelMeApiLambda');
-
-    // Create API Gateway (RestApi) and integrate with Lambda
-    const api = createApiGateway(this, pythonLambda, 'ModelMeApi');
 
     // Deploy nested stacks for shared infrastructure, backend, and frontend
     const sharedInfraStack = new SharedInfraStack(this, `SharedInfra-${stage}`, {
@@ -44,7 +36,7 @@ export class GarmaxAiStack extends cdk.Stack {
     const frontendStack = new FrontendStack(this, `Frontend-${stage}`, {
       stage,
       staticSiteBucket: sharedInfraStack.staticSiteBucket,
-      apiGateway: api,
+      apiGateway: backendStack.apiGateway,
       env,
     });
 
