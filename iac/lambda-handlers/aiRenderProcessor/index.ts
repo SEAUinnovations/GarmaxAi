@@ -254,21 +254,22 @@ export async function handler(event: any) {
     console.error('💥 AI rendering failed:', error);
     
     // Publish failure event for session cleanup
+    const err = error instanceof Error ? error : new Error(String(error));
     await publishRenderFailureEvent({
       sessionId: detail.sessionId,
       userId: detail.userId,
-      error: error.message,
+      error: err.message,
       correlationId,
     });
     
     // Track failure metrics
     await trackRenderMetrics({
-      provider: actualProvider || RENDER_PROVIDER,
+      provider: RENDER_PROVIDER,
       quality: detail.renderOptions?.quality || 'unknown',
       processingTimeMs: Date.now() - startTime,
       success: false,
       userId: detail.userId,
-      errorType: error.name || 'UnknownError',
+      errorType: err.name || 'UnknownError',
     });
     
     throw error;
@@ -286,11 +287,11 @@ async function enforceUserQuotas(userId: string, sessionId: string): Promise<voi
 }
 
 /**
- * Download guidance assets (depth maps, normal maps, etc.) from S3
+                  * Download guidance assets (depth maps, normal maps, etc.) from S3
  * These assets are used as conditioning inputs for ControlNet diffusion
  */
 async function downloadGuidanceAssets(guidanceKeys: any, sessionId: string): Promise<any> {
-  const assets = {};
+  const assets: any = {};
   
   // Download depth map if available (ControlNet Depth conditioning)
   if (guidanceKeys.depth) {

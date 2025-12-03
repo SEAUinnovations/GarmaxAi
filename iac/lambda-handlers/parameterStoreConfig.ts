@@ -161,7 +161,8 @@ export async function loadApiKeys(): Promise<ApiKeyConfig> {
 
   } catch (error) {
     console.error('❌ Failed to load Parameter Store configuration:', error);
-    throw new Error(`Parameter Store configuration failed: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Parameter Store configuration failed: ${errorMessage}`);
   }
 }
 
