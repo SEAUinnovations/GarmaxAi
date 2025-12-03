@@ -223,7 +223,7 @@ class GeminiImageService {
       this.accessToken = serviceAccount.api_key || '';
       this.tokenExpiresAt = now + 60 * 60 * 1000; // 1 hour expiry
       
-      return this.accessToken;
+      return this.accessToken || '';
       
     } catch (error: any) {
       logger.error(`Failed to obtain Gemini access token: ${error.message}`, 'GeminiImageService');
@@ -300,7 +300,7 @@ class GeminiImageService {
    * @param quality - Quality tier: sd, hd, or 4k
    * @returns Gemini API parameters for image generation
    */
-  private getQualityParameters(quality: 'sd' | 'hd' | '4k') {
+  private getQualityParameters(quality: 'sd' | 'hd' | '4k'): any {
     switch (quality) {
       case 'sd':
         return {

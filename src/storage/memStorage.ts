@@ -346,4 +346,24 @@ export class MemStorage implements IStorage {
 
     return this.virtualWardrobe.delete(entry.id);
   }
+
+  // Missing methods for compatibility
+  async updateUser(userId: string, data: Partial<User>): Promise<User> {
+    const user = this.users.get(userId);
+    if (!user) {
+      throw new Error(`User ${userId} not found`);
+    }
+    const updatedUser = { ...user, ...data, updatedAt: new Date() };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
+  async getGarmentsByIds(garmentIds: string[]): Promise<GarmentItem[]> {
+    return garmentIds.map(id => this.garmentItems.get(id)).filter(Boolean) as GarmentItem[];
+  }
+
+  async getActiveSubscription(userId: string): Promise<any | undefined> {
+    // Mock implementation - return null for now
+    return null;
+  }
 }

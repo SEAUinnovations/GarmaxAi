@@ -7,9 +7,9 @@ import { subscriptionService } from "../services/subscriptionService";
 import { eventBridgeService } from "../services/eventBridgeService";
 import { 
   createTryonSessionSchema, 
-  confirmPreviewSchema,
-  type RenderQuality 
+  confirmPreviewSchema
 } from "@shared/schema";
+import { type RenderQuality } from "../services/creditsService";
 
 /**
  * @description Create new try-on session

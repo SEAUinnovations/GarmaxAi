@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/mysql2';
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import mysql from 'mysql2/promise';
 import { randomUUID } from 'crypto';
 import {
@@ -29,13 +29,18 @@ import { type TempUser } from '../types/index';
 import { logger } from '../utils/winston-logger';
 
 export class RDSStorage implements IStorage {
-  private db: ReturnType<typeof drizzle>;
+  private _db: ReturnType<typeof drizzle>;
   private connection: mysql.Connection;
 
   constructor(connectionString: string) {
     // Create connection properly
     this.connection = mysql.createConnection(connectionString) as any;
-    this.db = drizzle(this.connection);
+    this._db = drizzle(this.connection);
+  }
+
+  // Getter to expose db instance for services that need direct access
+  get db() {
+    return this._db;
   }  async connect(): Promise<void> {
     try {
       // Connection is already established in constructor for mysql2
@@ -58,7 +63,7 @@ export class RDSStorage implements IStorage {
 
   async getUser(id: string): Promise<User | undefined> {
     try {
-      const result = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+      const result = await this._db.select().from(users).where(eq(users.id, id)).limit(1);
       return result[0] as User | undefined;
     } catch (error) {
       logger.error(`Error getting user ${id}: ${error}`, 'RDSStorage');
@@ -72,7 +77,7 @@ export class RDSStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     try {
-      const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
+      const result = await this._db.select().from(users).where(eq(users.username, username)).limit(1);
       return result[0] as User | undefined;
     } catch (error) {
       logger.error(`Error getting user by username ${username}: ${error}`, 'RDSStorage');
@@ -82,7 +87,7 @@ export class RDSStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     try {
-      const result = await this.db.select().from(users).where(eq(users.email, email)).limit(1);
+      const result = await this._db.select().from(users).where(eq(users.email, email)).limit(1);
       return result[0] as User | undefined;
     } catch (error) {
       logger.error(`Error getting user by email ${email}: ${error}`, 'RDSStorage');
@@ -99,7 +104,7 @@ export class RDSStorage implements IStorage {
   }): Promise<User> {
     try {
       const userId = crypto.randomUUID();
-      await this.db.insert(users).values({
+      await this._db.insert(users).values({
         id: userId,
         username: insertUser.username,
         email: insertUser.email,
@@ -113,7 +118,7 @@ export class RDSStorage implements IStorage {
       });
 
       // Get the created user
-      const createdUser = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const createdUser = await this._db.select().from(users).where(eq(users.id, userId)).limit(1);
       if (!createdUser[0]) {
         throw new Error('Failed to retrieve created user');
       }
@@ -128,7 +133,7 @@ export class RDSStorage implements IStorage {
 
   async updateUserCredits(userId: string, credits: number): Promise<User> {
     try {
-      await this.db.update(users)
+      await this._db.update(users)
         .set({ 
           credits, 
           creditsRemaining: credits,
@@ -152,12 +157,12 @@ export class RDSStorage implements IStorage {
   async createGeneration(generation: InsertGeneration): Promise<Generation> {
     try {
       const generationId = crypto.randomUUID();
-      await this.db.insert(generations).values({
+      await this._db.insert(generations).values({
         ...generation,
         id: generationId
       });
       
-      const createdGeneration = await this.db.select()
+      const createdGeneration = await this._db.select()
         .from(generations)
         .where(eq(generations.id, generationId))
         .limit(1);
@@ -176,7 +181,7 @@ export class RDSStorage implements IStorage {
 
   async getGeneration(id: string): Promise<Generation | undefined> {
     try {
-      const result = await this.db.select().from(generations).where(eq(generations.id, id)).limit(1);
+      const result = await this._db.select().from(generations).where(eq(generations.id, id)).limit(1);
       return result[0] as Generation | undefined;
     } catch (error) {
       logger.error(`Error getting generation ${id}: ${error}`, 'RDSStorage');
@@ -186,7 +191,7 @@ export class RDSStorage implements IStorage {
 
   async getUserGenerations(userId: string): Promise<Generation[]> {
     try {
-      const result = await this.db.select()
+      const result = await this._db.select()
         .from(generations)
         .where(eq(generations.userId, userId))
         .orderBy(desc(generations.createdAt));
@@ -200,7 +205,7 @@ export class RDSStorage implements IStorage {
 
   async cancelGeneration(id: string): Promise<boolean> {
     try {
-      const result = await this.db.update(generations)
+      const result = await this._db.update(generations)
         .set({ status: 'cancelled', updatedAt: new Date() })
         .where(eq(generations.id, id));
 
@@ -220,12 +225,12 @@ export class RDSStorage implements IStorage {
   }): Promise<TempUser> {
     try {
       const tempUserId = crypto.randomUUID();
-      await this.db.insert(tempUsers).values({
+      await this._db.insert(tempUsers).values({
         ...data,
         id: tempUserId
       });
       
-      const createdTempUser = await this.db.select()
+      const createdTempUser = await this._db.select()
         .from(tempUsers)
         .where(eq(tempUsers.id, tempUserId))
         .limit(1);
@@ -244,7 +249,7 @@ export class RDSStorage implements IStorage {
 
   async getTempUserByEmail(email: string): Promise<TempUser | undefined> {
     try {
-      const result = await this.db.select().from(tempUsers).where(eq(tempUsers.email, email)).limit(1);
+      const result = await this._db.select().from(tempUsers).where(eq(tempUsers.email, email)).limit(1);
       return result[0] as TempUser | undefined;
     } catch (error) {
       logger.error(`Error getting temp user by email ${email}: ${error}`, 'RDSStorage');
@@ -257,7 +262,7 @@ export class RDSStorage implements IStorage {
     verificationExpiry?: Date;
   }): Promise<void> {
     try {
-      await this.db.update(tempUsers)
+      await this._db.update(tempUsers)
         .set(data)
         .where(eq(tempUsers.email, email));
 
@@ -270,7 +275,7 @@ export class RDSStorage implements IStorage {
 
   async deleteTempUser(email: string): Promise<void> {
     try {
-      await this.db.delete(tempUsers).where(eq(tempUsers.email, email));
+      await this._db.delete(tempUsers).where(eq(tempUsers.email, email));
       logger.info(`Deleted temp user: ${email}`, 'RDSStorage');
     } catch (error) {
       logger.error(`Error deleting temp user ${email}: ${error}`, 'RDSStorage');
@@ -282,7 +287,7 @@ export class RDSStorage implements IStorage {
   async createTryonSession(session: InsertTryonSession): Promise<TryonSession> {
     try {
       const sessionId = crypto.randomUUID();
-      await this.db.insert(tryonSessions).values({
+      await this._db.insert(tryonSessions).values({
         ...session,
         id: sessionId,
         status: 'queued',
@@ -293,7 +298,7 @@ export class RDSStorage implements IStorage {
         customBackgroundPrompt: session.customBackgroundPrompt || null,
       });
 
-      const createdSession = await this.db.select()
+      const createdSession = await this._db.select()
         .from(tryonSessions)
         .where(eq(tryonSessions.id, sessionId))
         .limit(1);
@@ -312,7 +317,7 @@ export class RDSStorage implements IStorage {
 
   async getTryonSession(id: string): Promise<TryonSession | undefined> {
     try {
-      const result = await this.db.select()
+      const result = await this._db.select()
         .from(tryonSessions)
         .where(eq(tryonSessions.id, id))
         .limit(1);
@@ -325,7 +330,7 @@ export class RDSStorage implements IStorage {
 
   async updateTryonSession(id: string, updates: Partial<TryonSession>): Promise<TryonSession | undefined> {
     try {
-      await this.db.update(tryonSessions)
+      await this._db.update(tryonSessions)
         .set(updates)
         .where(eq(tryonSessions.id, id));
 
@@ -342,7 +347,7 @@ export class RDSStorage implements IStorage {
 
   async getUserTryonSessions(userId: string): Promise<TryonSession[]> {
     try {
-      const result = await this.db.select()
+      const result = await this._db.select()
         .from(tryonSessions)
         .where(eq(tryonSessions.userId, userId))
         .orderBy(desc(tryonSessions.createdAt));
@@ -358,14 +363,14 @@ export class RDSStorage implements IStorage {
   async createUserAvatar(avatar: InsertUserAvatar): Promise<UserAvatar> {
     try {
       const avatarId = crypto.randomUUID();
-      await this.db.insert(userAvatars).values({
+      await this._db.insert(userAvatars).values({
         ...avatar,
         id: avatarId,
         isDemo: avatar.isDemo || false,
         avatarThumbnailUrl: avatar.avatarThumbnailUrl || null,
       });
 
-      const createdAvatar = await this.db.select()
+      const createdAvatar = await this._db.select()
         .from(userAvatars)
         .where(eq(userAvatars.id, avatarId))
         .limit(1);
@@ -384,7 +389,7 @@ export class RDSStorage implements IStorage {
 
   async getUserAvatar(id: string): Promise<UserAvatar | undefined> {
     try {
-      const result = await this.db.select()
+      const result = await this._db.select()
         .from(userAvatars)
         .where(eq(userAvatars.id, id))
         .limit(1);
@@ -397,7 +402,7 @@ export class RDSStorage implements IStorage {
 
   async getUserAvatars(userId: string): Promise<UserAvatar[]> {
     try {
-      const result = await this.db.select()
+      const result = await this._db.select()
         .from(userAvatars)
         .where(eq(userAvatars.userId, userId))
         .orderBy(desc(userAvatars.createdAt));
@@ -411,7 +416,7 @@ export class RDSStorage implements IStorage {
 
   async deleteUserAvatar(id: string): Promise<boolean> {
     try {
-      const result = await this.db.delete(userAvatars)
+      const result = await this._db.delete(userAvatars)
         .where(eq(userAvatars.id, id));
 
       const deleted = result[0].affectedRows > 0;
@@ -429,7 +434,7 @@ export class RDSStorage implements IStorage {
   async createGarment(garment: InsertGarmentItem): Promise<GarmentItem> {
     try {
       const garmentId = crypto.randomUUID();
-      await this.db.insert(garmentItems).values({
+      await this._db.insert(garmentItems).values({
         ...garment,
         id: garmentId,
         color: garment.color || null,
@@ -440,7 +445,7 @@ export class RDSStorage implements IStorage {
         analysisData: garment.analysisData || null,
       });
 
-      const createdGarment = await this.db.select()
+      const createdGarment = await this._db.select()
         .from(garmentItems)
         .where(eq(garmentItems.id, garmentId))
         .limit(1);
@@ -459,7 +464,7 @@ export class RDSStorage implements IStorage {
 
   async getGarment(id: string): Promise<GarmentItem | undefined> {
     try {
-      const result = await this.db.select()
+      const result = await this._db.select()
         .from(garmentItems)
         .where(eq(garmentItems.id, id))
         .limit(1);
@@ -472,7 +477,7 @@ export class RDSStorage implements IStorage {
 
   async updateGarment(id: string, updates: Partial<GarmentItem>): Promise<GarmentItem | undefined> {
     try {
-      await this.db.update(garmentItems)
+      await this._db.update(garmentItems)
         .set(updates)
         .where(eq(garmentItems.id, id));
 
@@ -490,11 +495,11 @@ export class RDSStorage implements IStorage {
   async deleteGarment(id: string): Promise<boolean> {
     try {
       // First delete from wardrobe
-      await this.db.delete(virtualWardrobe)
+      await this._db.delete(virtualWardrobe)
         .where(eq(virtualWardrobe.garmentId, id));
 
       // Then delete the garment
-      const result = await this.db.delete(garmentItems)
+      const result = await this._db.delete(garmentItems)
         .where(eq(garmentItems.id, id));
 
       const deleted = result[0].affectedRows > 0;
@@ -510,7 +515,7 @@ export class RDSStorage implements IStorage {
 
   async getUserWardrobe(userId: string): Promise<GarmentItem[]> {
     try {
-      const result = await this.db.select({
+      const result = await this._db.select({
         garment: garmentItems,
         wardrobeEntry: virtualWardrobe
       })
@@ -531,7 +536,7 @@ export class RDSStorage implements IStorage {
       const wardrobeId = crypto.randomUUID();
       
       // Get max position for user's wardrobe
-      const userWardrobe = await this.db.select()
+      const userWardrobe = await this._db.select()
         .from(virtualWardrobe)
         .where(eq(virtualWardrobe.userId, userId));
       
@@ -539,14 +544,14 @@ export class RDSStorage implements IStorage {
         Math.max(max, entry.position), -1
       );
 
-      await this.db.insert(virtualWardrobe).values({
+      await this._db.insert(virtualWardrobe).values({
         id: wardrobeId,
         userId,
         garmentId,
         position: maxPosition + 1,
       });
 
-      const createdEntry = await this.db.select()
+      const createdEntry = await this._db.select()
         .from(virtualWardrobe)
         .where(eq(virtualWardrobe.id, wardrobeId))
         .limit(1);
@@ -565,7 +570,7 @@ export class RDSStorage implements IStorage {
 
   async removeFromWardrobe(userId: string, garmentId: string): Promise<boolean> {
     try {
-      const result = await this.db.delete(virtualWardrobe)
+      const result = await this._db.delete(virtualWardrobe)
         .where(and(
           eq(virtualWardrobe.userId, userId),
           eq(virtualWardrobe.garmentId, garmentId)
@@ -578,6 +583,53 @@ export class RDSStorage implements IStorage {
       return deleted;
     } catch (error) {
       logger.error(`Error removing from wardrobe: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  // Missing methods for compatibility
+  async updateUser(userId: string, data: Partial<User>): Promise<User> {
+    try {
+      await this._db.update(users)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+
+      const updatedUser = await this._db.select().from(users).where(eq(users.id, userId));
+      if (updatedUser.length === 0) {
+        throw new Error(`User ${userId} not found`);
+      }
+      return updatedUser[0] as User;
+    } catch (error) {
+      logger.error(`Error updating user: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async getGarmentsByIds(garmentIds: string[]): Promise<GarmentItem[]> {
+    try {
+      const garments = await this._db.select()
+        .from(garmentItems)
+        .where(sql`${garmentItems.id} IN (${garmentIds.map(id => `'${id}'`).join(',')})`);
+      return garments as GarmentItem[];
+    } catch (error) {
+      logger.error(`Error getting garments by IDs: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async getActiveSubscription(userId: string): Promise<any | undefined> {
+    try {
+      const result = await this._db.select()
+        .from(subscriptions)
+        .where(and(
+          eq(subscriptions.userId, userId),
+          eq(subscriptions.status, 'active')
+        ))
+        .limit(1);
+      
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      logger.error(`Error getting active subscription: ${error}`, 'RDSStorage');
       throw error;
     }
   }

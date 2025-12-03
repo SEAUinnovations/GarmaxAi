@@ -207,7 +207,7 @@ export class SubscriptionService {
       userId,
       planId: plan.id,
       status: stripeSubscription.status,
-      currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+      currentPeriodEnd: new Date((stripeSubscription as any).current_period_end * 1000),
       stripeCustomerId: stripeSubscription.customer as string,
       stripeSubscriptionId: stripeSubscription.id,
     });

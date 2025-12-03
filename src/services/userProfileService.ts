@@ -64,8 +64,8 @@ export class UserProfileService {
       const profile: UserPhysicalProfile = {
         heightFeet: user.heightFeet || undefined,
         heightInches: user.heightInches || undefined,
-        heightCentimeters: user.heightCentimeters || undefined,
-        totalHeightInches: this.calculateTotalHeight(user.heightFeet, user.heightInches),
+        heightCentimeters: undefined, // Not implemented in schema yet
+        totalHeightInches: this.calculateTotalHeight(user.heightFeet || undefined, user.heightInches || undefined),
         ageRange: user.ageRange as UserPhysicalProfile['ageRange'] || undefined,
         gender: user.gender as UserPhysicalProfile['gender'] || undefined,
         ethnicity: user.ethnicity || undefined,

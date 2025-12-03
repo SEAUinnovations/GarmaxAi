@@ -1,3 +1,14 @@
+// Set up environment variables before any imports
+process.env.NODE_ENV = 'test';
+process.env.COGNITO_USER_POOL_ID = 'us-east-1_test123456';
+process.env.COGNITO_CLIENT_ID = 'test-client-id-123456';
+process.env.AWS_REGION = 'us-east-1';
+process.env.S3_BUCKET = 'test-bucket';
+process.env.EVENTBRIDGE_BUS_NAME = 'test-event-bus';
+process.env.STRIPE_SECRET_KEY = 'sk_test_fake_key_for_testing_only';
+process.env.REDIS_URL = 'redis://localhost:6379/1';
+process.env.DATABASE_URL = 'mysql://root:password@localhost:3306/garmaxai_test';
+
 // Authentication API endpoint tests
 import { describe, test, expect, beforeEach } from '@jest/globals';
 import { createTestClient, createTestUser } from '../utils/testHelpers';

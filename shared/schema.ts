@@ -3,6 +3,9 @@ import { mysqlTable, text, varchar, int, timestamp, json, boolean, decimal } fro
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Export types
+export type RenderQuality = "sd" | "hd" | "4k";
+
 // Users table
 export const users = mysqlTable("users", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),

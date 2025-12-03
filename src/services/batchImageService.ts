@@ -91,7 +91,7 @@ import { geminiBatchJobs } from '../../shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { logger } from '../utils/winston-logger';
 import { geminiImageService, GeminiImageRequest, GeminiBatchRequest } from './geminiImageService';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 // AWS EventBridge client for publishing batch events
 const eventBridgeClient = new EventBridgeClient({});
@@ -140,7 +140,7 @@ class BatchImageService {
    */
   async queueRequest(userId: string, imageRequest: GeminiImageRequest): Promise<string> {
     // Generate unique request ID
-    const requestId = uuidv4();
+    const requestId = randomUUID();
     
     const queuedRequest: QueuedRequest = {
       id: requestId,
@@ -244,7 +244,7 @@ class BatchImageService {
       );
 
       // Generate unique batch ID
-      const batchId = `batch-${Date.now()}-${uuidv4().substring(0, 8)}`;
+      const batchId = `batch-${Date.now()}-${randomUUID().substring(0, 8)}`;
 
       // Group requests by user for quota tracking
       const userRequests = new Map<string, number>();
@@ -417,7 +417,7 @@ class BatchImageService {
           completedAt: new Date(),
         })
         .where(eq(geminiBatchJobs.batchId, internalBatchId))
-        .catch(err => logger.error(`Failed to update batch status: ${err}`, 'BatchImageService'));
+        .catch((err: any) => logger.error(`Failed to update batch status: ${err}`, 'BatchImageService'));
     }
   }
 

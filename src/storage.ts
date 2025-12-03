@@ -15,11 +15,37 @@ export interface IStorage {
     subscriptionTier?: 'free' | 'studio' | 'pro';
     creditsRemaining?: number;
   }): Promise<User>;
+  updateUser(userId: string, data: Partial<User>): Promise<User>;
   updateUserCredits(userId: string, credits: number): Promise<User>;
   createGeneration(generation: InsertGeneration): Promise<Generation>;
   getGeneration(id: string): Promise<Generation | undefined>;
   getUserGenerations(userId: string): Promise<Generation[]>;
   cancelGeneration(id: string): Promise<boolean>;
+  
+  // Avatar methods
+  getUserAvatars(userId: string): Promise<any[]>;
+  getUserAvatar(avatarId: string): Promise<any | undefined>;
+  createUserAvatar(data: any): Promise<any>;
+  deleteUserAvatar(avatarId: string): Promise<boolean>;
+  
+  // Garment methods
+  createGarment(data: any): Promise<any>;
+  getGarment(garmentId: string): Promise<any | undefined>;
+  getGarmentsByIds(garmentIds: string[]): Promise<any[]>;
+  updateGarment(garmentId: string, data: any): Promise<any>;
+  deleteGarment(garmentId: string): Promise<boolean>;
+  getUserWardrobe(userId: string): Promise<any[]>;
+  addToWardrobe(userId: string, garmentId: string): Promise<any>;
+  
+  // Try-on session methods
+  createTryonSession(data: any): Promise<any>;
+  getTryonSession(sessionId: string): Promise<any | undefined>;
+  getUserTryonSessions(userId: string, limit?: number): Promise<any[]>;
+  updateTryonSession(sessionId: string, data: any): Promise<any>;
+  
+  // Subscription methods
+  getActiveSubscription(userId: string): Promise<any | undefined>;
+  
   // Temp user methods for email verification
   createTempUser(data: {
     email: string;
@@ -71,4 +97,31 @@ export const storage = {
     verificationExpiry?: Date;
   }) => (await StorageFactory.getStorage()).updateTempUser(email, data),
   deleteTempUser: async (email: string) => (await StorageFactory.getStorage()).deleteTempUser(email),
+  
+  // Avatar methods
+  getUserAvatars: async (userId: string) => (await StorageFactory.getStorage()).getUserAvatars(userId),
+  getUserAvatar: async (avatarId: string) => (await StorageFactory.getStorage()).getUserAvatar(avatarId),
+  createUserAvatar: async (data: any) => (await StorageFactory.getStorage()).createUserAvatar(data),
+  deleteUserAvatar: async (avatarId: string) => (await StorageFactory.getStorage()).deleteUserAvatar(avatarId),
+  
+  // Garment methods
+  createGarment: async (data: any) => (await StorageFactory.getStorage()).createGarment(data),
+  getGarment: async (garmentId: string) => (await StorageFactory.getStorage()).getGarment(garmentId),
+  getGarmentsByIds: async (garmentIds: string[]) => (await StorageFactory.getStorage()).getGarmentsByIds(garmentIds),
+  updateGarment: async (garmentId: string, data: any) => (await StorageFactory.getStorage()).updateGarment(garmentId, data),
+  deleteGarment: async (garmentId: string) => (await StorageFactory.getStorage()).deleteGarment(garmentId),
+  getUserWardrobe: async (userId: string) => (await StorageFactory.getStorage()).getUserWardrobe(userId),
+  addToWardrobe: async (userId: string, garmentId: string) => (await StorageFactory.getStorage()).addToWardrobe(userId, garmentId),
+  
+  // Try-on session methods
+  createTryonSession: async (data: any) => (await StorageFactory.getStorage()).createTryonSession(data),
+  getTryonSession: async (sessionId: string) => (await StorageFactory.getStorage()).getTryonSession(sessionId),
+  getUserTryonSessions: async (userId: string, limit?: number) => (await StorageFactory.getStorage()).getUserTryonSessions(userId, limit),
+  updateTryonSession: async (sessionId: string, data: any) => (await StorageFactory.getStorage()).updateTryonSession(sessionId, data),
+  
+  // Subscription methods
+  getActiveSubscription: async (userId: string) => (await StorageFactory.getStorage()).getActiveSubscription(userId),
+  
+  // User methods
+  updateUser: async (userId: string, data: Partial<any>) => (await StorageFactory.getStorage()).updateUser(userId, data),
 };

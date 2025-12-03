@@ -102,3 +102,18 @@ export class StorageFactory {
     }
   }
 }
+
+// Export database instance for direct access (needed by some services)
+export let db: any = null;
+
+// Initialize db connection when storage is created
+export const initializeDB = async () => {
+  const storage = await StorageFactory.getStorage();
+  if (storage instanceof RDSStorage) {
+    db = (storage as RDSStorage).db;
+  }
+  return db;
+};
+
+// Auto-initialize db when module is loaded
+initializeDB().catch(err => logger.error(`Failed to initialize DB: ${err}`, 'StorageFactory'));

@@ -33,7 +33,7 @@ export interface SubscriptionWithPlan {
  */
 export async function getActiveSubscription(userId: string): Promise<SubscriptionWithPlan | null> {
   try {
-    const result = await db
+    const result = await getDb()
       .select({
         subscription: subscriptions,
         plan: subscriptionPlans
@@ -75,7 +75,7 @@ export async function upsertSubscription(data: {
 }): Promise<Subscription> {
   try {
     // Check if subscription exists
-    const existing = await db
+    const existing = await getDb()
       .select()
       .from(subscriptions)
       .where(eq(subscriptions.stripeSubscriptionId, data.stripeSubscriptionId))
@@ -83,7 +83,7 @@ export async function upsertSubscription(data: {
 
     if (existing && existing.length > 0) {
       // Update existing
-      await db
+      await getDb()
         .update(subscriptions)
         .set({
           status: data.status,
@@ -92,7 +92,7 @@ export async function upsertSubscription(data: {
         })
         .where(eq(subscriptions.stripeSubscriptionId, data.stripeSubscriptionId));
 
-      const updated = await db
+      const updated = await getDb()
         .select()
         .from(subscriptions)
         .where(eq(subscriptions.stripeSubscriptionId, data.stripeSubscriptionId))
@@ -103,7 +103,7 @@ export async function upsertSubscription(data: {
     } else {
       // Create new
       const id = crypto.randomUUID();
-      await db.insert(subscriptions).values({
+      await getDb().insert(subscriptions).values({
         id,
         userId: data.userId,
         planId: data.planId,
@@ -114,7 +114,7 @@ export async function upsertSubscription(data: {
         stripeSubscriptionId: data.stripeSubscriptionId
       });
 
-      const created = await db
+      const created = await getDb()
         .select()
         .from(subscriptions)
         .where(eq(subscriptions.id, id))
@@ -134,7 +134,7 @@ export async function upsertSubscription(data: {
  */
 export async function cancelSubscription(stripeSubscriptionId: string): Promise<void> {
   try {
-    await db
+    await getDb()
       .update(subscriptions)
       .set({
         status: 'cancelled',
@@ -154,7 +154,7 @@ export async function cancelSubscription(stripeSubscriptionId: string): Promise<
  */
 export async function markSubscriptionPastDue(stripeSubscriptionId: string): Promise<void> {
   try {
-    await db
+    await getDb()
       .update(subscriptions)
       .set({
         status: 'past_due',
@@ -174,7 +174,7 @@ export async function markSubscriptionPastDue(stripeSubscriptionId: string): Pro
  */
 export async function getUserAvatarCount(userId: string): Promise<number> {
   try {
-    const result = await db
+    const result = await getDb()
       .select()
       .from(userAvatars)
       .where(eq(userAvatars.userId, userId));
@@ -198,7 +198,7 @@ export async function incrementTryonQuota(userId: string): Promise<void> {
       return;
     }
 
-    await db
+    await getDb()
       .update(subscriptions)
       .set({
         tryonQuotaUsed: activeSubscription.subscription.tryonQuotaUsed + 1,
@@ -218,7 +218,7 @@ export async function incrementTryonQuota(userId: string): Promise<void> {
  */
 export async function resetAllMonthlyQuotas(): Promise<number> {
   try {
-    const result = await db
+    const result = await getDb()
       .update(subscriptions)
       .set({
         tryonQuotaUsed: 0,
@@ -240,7 +240,7 @@ export async function resetAllMonthlyQuotas(): Promise<number> {
  */
 export async function getPlanByStripePriceId(stripePriceId: string): Promise<SubscriptionPlan | null> {
   try {
-    const result = await db
+    const result = await getDb()
       .select()
       .from(subscriptionPlans)
       .where(eq(subscriptionPlans.stripePriceId, stripePriceId))
@@ -259,7 +259,7 @@ export async function getPlanByStripePriceId(stripePriceId: string): Promise<Sub
 export async function getOrCreateStripeCustomer(userId: string): Promise<string | null> {
   try {
     // Check if user has existing subscription with customer ID
-    const result = await db
+    const result = await getDb()
       .select()
       .from(subscriptions)
       .where(eq(subscriptions.userId, userId))
