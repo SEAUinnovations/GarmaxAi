@@ -206,8 +206,7 @@ jobs:
       - restore-workspace
       - setup_remote_docker:
           docker_layer_caching: true
-      - aws-cli/setup:
-          role_arn: ${AWS_ROLE_ARN}
+      - aws-cli/setup
       - run:
           name: Login to Amazon ECR
           command: |
@@ -237,8 +236,7 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
-      - aws-cli/setup:
-          role_arn: ${AWS_ROLE_ARN}
+      - aws-cli/setup
       - run:
           name: Deploy CDK stack to development
           command: npm run deploy:dev
@@ -258,8 +256,7 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
-      - aws-cli/setup:
-          role_arn: ${AWS_ROLE_ARN}
+      - aws-cli/setup
       - run:
           name: Deploy CDK stack to QA
           command: npm run deploy:qa
@@ -279,8 +276,7 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
-      - aws-cli/setup:
-          role_arn: ${AWS_ROLE_ARN}
+      - aws-cli/setup
       - run:
           name: Deploy CDK stack to production
           command: npm run deploy:prod
