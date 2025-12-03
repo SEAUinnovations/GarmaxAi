@@ -16,7 +16,7 @@ export interface FrontendDistributionProps {
 export default function createFrontend(
   stack: Stack,
   stage: string,
-  bucket: s3.Bucket,
+  bucket: s3.IBucket,
   props: FrontendDistributionProps,
 ) {
   const { region, domainName, wafArn } = props;

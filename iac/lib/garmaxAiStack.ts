@@ -39,6 +39,11 @@ export class GarmaxAiStack extends cdk.Stack {
       env,
     });
 
+    // Explicitly set dependency order to prevent circular dependencies
+    backendStack.addDependency(sharedInfraStack);
+    frontendStack.addDependency(sharedInfraStack);
+    frontendStack.addDependency(backendStack);
+
     // Create budget monitoring and alarms ($50/day threshold)
     const budgetMonitoring = createBudgetMonitoring(this, {
       stage: env.STAGE,

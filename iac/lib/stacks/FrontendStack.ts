@@ -4,13 +4,13 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import createCloudfront from '../Cloudfront/createCloudfront';
 import createFrontend from '../Cloudfront/createFrontend';
 
-export interface FrontendStackProps extends cdk.NestedStackProps {
+export interface FrontendStackProps extends cdk.StackProps {
   stage: string;
-  staticSiteBucket: s3.Bucket;
+  staticSiteBucketName: string; // Changed from Bucket object to bucket name string
   apiUrl: string;
   apiDomainName?: string;
   apiStageName?: string;
-  env: any; // Environment configuration
+  envConfig: any; // Environment configuration (domain names, certs, etc.)
 }
 
 /**
@@ -20,14 +20,21 @@ export interface FrontendStackProps extends cdk.NestedStackProps {
  * - Custom domain configuration
  * - WAF integration
  */
-export class FrontendStack extends cdk.NestedStack {
+export class FrontendStack extends cdk.Stack {
   public readonly frontendDistributionId: string;
   public readonly backendDistributionId: string;
 
   constructor(scope: Construct, id: string, props: FrontendStackProps) {
     super(scope, id, props);
 
-    const region = this.region || cdk.Stack.of(this).region;
+    const region = props.env?.region || 'us-east-1';
+    
+    // Look up the static site bucket by name (avoids circular dependency)
+    const staticSiteBucket = s3.Bucket.fromBucketName(
+      this,
+      'StaticSiteBucket',
+      props.staticSiteBucketName
+    );
     
     // Create CloudFront distribution for API Gateway
     // Use custom domain if configured, otherwise use API Gateway URL directly
@@ -44,14 +51,14 @@ export class FrontendStack extends cdk.NestedStack {
     );
 
     // Create CloudFront distribution for frontend
-    const frontendDomain = (props.env as any).frontendDomainName
-      ? (props.env as any).frontendDomainName
-      : props.env.hostedZoneName;
+    const frontendDomain = (props.envConfig as any).frontendDomainName
+      ? (props.envConfig as any).frontendDomainName
+      : props.envConfig.hostedZoneName;
 
-    const feDist = createFrontend(this, props.stage, props.staticSiteBucket, {
+    const feDist = createFrontend(this, props.stage, staticSiteBucket, {
       region,
       domainName: frontendDomain,
-      wafArn: (props.env as any).wafArn,
+      wafArn: (props.envConfig as any).wafArn,
     });
 
     this.frontendDistributionId = feDist.distributionId;
@@ -59,7 +66,7 @@ export class FrontendStack extends cdk.NestedStack {
 
     // Outputs
     new cdk.CfnOutput(this, `FrontendBucketName`, {
-      value: props.staticSiteBucket.bucketName,
+      value: props.staticSiteBucketName,
       exportName: `Frontend-BucketName-${props.stage}`,
     });
 

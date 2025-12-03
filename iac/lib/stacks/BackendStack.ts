@@ -18,7 +18,7 @@ import createEcsCluster from '../ECS/createEcsCluster';
 import createBudgetMonitoring from '../Monitoring/createBudgetMonitoring';
 import { grantReadApiKeys, type ApiKeyParameters } from '../ParameterStore';
 
-export interface BackendStackProps extends cdk.NestedStackProps {
+export interface BackendStackProps extends cdk.StackProps {
   stage: string;
   vpc: ec2.IVpc;
   uploadsBucket: s3.Bucket;
@@ -26,7 +26,7 @@ export interface BackendStackProps extends cdk.NestedStackProps {
   rendersBucket: s3.Bucket;
   smplAssetsBucket: s3.Bucket;
   apiKeyParameters: ApiKeyParameters;
-  env: any; // Environment configuration
+  envConfig: any; // Environment configuration (domain names, certs, etc.)
 }
 
 /**
@@ -37,7 +37,7 @@ export interface BackendStackProps extends cdk.NestedStackProps {
  * - Lambda processors (try-on, AI render, billing)
  * - Budget monitoring
  */
-export class BackendStack extends cdk.NestedStack {
+export class BackendStack extends cdk.Stack {
   public readonly apiGateway: cdk.aws_apigateway.RestApi;
   public readonly apiDomainName?: string;
   public readonly tryonEventBus: cdk.aws_events.EventBus;
@@ -47,6 +47,9 @@ export class BackendStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: BackendStackProps) {
     super(scope, id, props);
 
+    // Get region from CDK stack env props (passed during stack creation)
+    const region = props.env?.region || 'us-east-1';
+
     // Create API Lambda
     const pythonLambda = createPythonLambda(this, 'ModelMeApiLambda');
 
@@ -54,16 +57,15 @@ export class BackendStack extends cdk.NestedStack {
     this.apiGateway = createApiGateway(this, pythonLambda, 'ModelMeApi');
 
     // Add custom domain to API Gateway if configured
-    const region = this.region || cdk.Stack.of(this).region;
-    const backendDomain = (props.env as any).backendDomainName || `backend.${props.env.hostedZoneName}`;
+    const backendDomain = (props.envConfig as any).backendDomainName || `backend.${props.envConfig.hostedZoneName}`;
     
-    if (!props.env.hostedZoneName.includes('PLACEHOLDER')) {
+    if (!props.envConfig.hostedZoneName.includes('PLACEHOLDER')) {
       const apiDomain = this.apiGateway.addDomainName('ApiDomain', {
         domainName: backendDomain,
         certificate: cdk.aws_certificatemanager.Certificate.fromCertificateArn(
           this,
           'ApiCertificate',
-          (props.env as any).BackendAcmCert?.[region]?.id || props.env.AcmCert[region].id
+          (props.envConfig as any).BackendAcmCert?.[region]?.id || props.envConfig.AcmCert[region].id
         ),
       });
       this.apiDomainName = apiDomain.domainName;
@@ -72,7 +74,7 @@ export class BackendStack extends cdk.NestedStack {
     // Create ECS infrastructure for heavy SMPL processing (optional based on feature flag)
     const ecrRepository = createEcrRepository(this, props.stage);
     
-    const ecsInfrastructure = props.env.ENABLE_ECS_HEAVY_JOBS ? createEcsCluster(
+    const ecsInfrastructure = props.envConfig.ENABLE_ECS_HEAVY_JOBS ? createEcsCluster(
       this, 
       props.stage, 
       {
@@ -98,7 +100,7 @@ export class BackendStack extends cdk.NestedStack {
       uploadsBucket: props.uploadsBucket,
       guidanceBucket: props.guidanceBucket,
       rendersBucket: props.rendersBucket,
-      smplAssetsBucket: props.env.ENABLE_ECS_HEAVY_JOBS ? undefined : props.smplAssetsBucket,
+      smplAssetsBucket: props.envConfig.ENABLE_ECS_HEAVY_JOBS ? undefined : props.smplAssetsBucket,
     });
     
     tryonProcessor.addEventSource(new SqsEventSource(tryonQueue, {
@@ -109,7 +111,7 @@ export class BackendStack extends cdk.NestedStack {
     const aiRenderProcessor = createAiRenderProcessor(this, props.stage, {
       guidanceBucket: props.guidanceBucket,
       rendersBucket: props.rendersBucket,
-      allowBedrockFailover: props.env.ALLOW_BEDROCK_FAILOVER,
+      allowBedrockFailover: props.envConfig.ALLOW_BEDROCK_FAILOVER,
     });
     
     const billingProcessor = createBillingProcessor(this, props.stage);
@@ -132,8 +134,8 @@ export class BackendStack extends cdk.NestedStack {
     // Create budget monitoring
     createBudgetMonitoring(this, {
       stage: props.stage,
-      dailyBudgetUsd: props.env.DAILY_BUDGET_USD || 50,
-      alertEmail: props.env.ALERT_EMAIL || 'alerts@garmaxai.com',
+      dailyBudgetUsd: props.envConfig.DAILY_BUDGET_USD || 50,
+      alertEmail: props.envConfig.ALERT_EMAIL || 'alerts@garmaxai.com',
     });
 
     // Configure IAM permissions
@@ -194,7 +196,7 @@ export class BackendStack extends cdk.NestedStack {
       exportName: `Backend-BillingProcessor-${props.stage}`,
     });
 
-    if (props.env.ENABLE_ECS_HEAVY_JOBS && ecsInfrastructure) {
+    if (props.envConfig.ENABLE_ECS_HEAVY_JOBS && ecsInfrastructure) {
       new cdk.CfnOutput(this, `EcsClusterArn`, {
         value: ecsInfrastructure.cluster.clusterArn,
         exportName: `Backend-EcsCluster-${props.stage}`,
@@ -220,13 +222,13 @@ export class BackendStack extends cdk.NestedStack {
     tryonProcessor.addEnvironment('UPLOADS_BUCKET_NAME', props.uploadsBucket.bucketName);
     tryonProcessor.addEnvironment('GUIDANCE_BUCKET_NAME', props.guidanceBucket.bucketName);
     tryonProcessor.addEnvironment('RENDERS_BUCKET_NAME', props.rendersBucket.bucketName);
-    if (!props.env.ENABLE_ECS_HEAVY_JOBS && props.smplAssetsBucket) {
+    if (!props.envConfig.ENABLE_ECS_HEAVY_JOBS && props.smplAssetsBucket) {
       tryonProcessor.addEnvironment('SMPL_ASSETS_BUCKET_NAME', props.smplAssetsBucket.bucketName);
     }
     tryonProcessor.addEnvironment('EVENT_BUS_NAME', this.tryonEventBus.eventBusName);
-    tryonProcessor.addEnvironment('MAX_TRYONS_PER_USER_DAILY', props.env.MAX_TRYONS_PER_USER_DAILY);
+    tryonProcessor.addEnvironment('MAX_TRYONS_PER_USER_DAILY', props.envConfig.MAX_TRYONS_PER_USER_DAILY);
     
-    if (props.env.ENABLE_ECS_HEAVY_JOBS && ecsInfrastructure) {
+    if (props.envConfig.ENABLE_ECS_HEAVY_JOBS && ecsInfrastructure) {
       tryonProcessor.addEnvironment('ECS_CLUSTER_NAME', ecsInfrastructure.cluster.clusterName);
       tryonProcessor.addEnvironment('ECS_TASK_DEFINITION_ARN', ecsInfrastructure.taskDefinition.taskDefinitionArn);
       tryonProcessor.addEnvironment('ECS_SUBNET_IDS', props.vpc.privateSubnets.map((subnet: any) => subnet.subnetId).join(','));
@@ -236,17 +238,17 @@ export class BackendStack extends cdk.NestedStack {
     aiRenderProcessor.addEnvironment('GUIDANCE_BUCKET_NAME', props.guidanceBucket.bucketName);
     aiRenderProcessor.addEnvironment('RENDERS_BUCKET_NAME', props.rendersBucket.bucketName);
     aiRenderProcessor.addEnvironment('EVENT_BUS_NAME', this.tryonEventBus.eventBusName);
-    aiRenderProcessor.addEnvironment('RENDER_PROVIDER', props.env?.RENDER_PROVIDER || 'replicate');
-    aiRenderProcessor.addEnvironment('ALLOW_BEDROCK_FAILOVER', (props.env?.ALLOW_BEDROCK_FAILOVER ?? false).toString());
-    aiRenderProcessor.addEnvironment('BEDROCK_MAX_FAILOVER_PER_MIN', props.env?.BEDROCK_MAX_FAILOVER_PER_MIN || '3');
-    aiRenderProcessor.addEnvironment('BEDROCK_DAILY_BUDGET_USD', props.env?.BEDROCK_DAILY_BUDGET_USD || '50');
-    aiRenderProcessor.addEnvironment('MAX_RENDERS_PER_USER_DAILY', props.env?.MAX_RENDERS_PER_USER_DAILY || '50');
-    aiRenderProcessor.addEnvironment('ENABLE_GEMINI_BATCH', (props.env?.ENABLE_GEMINI_BATCH ?? false).toString());
-    aiRenderProcessor.addEnvironment('GEMINI_TRAFFIC_PERCENT', props.env?.GEMINI_TRAFFIC_PERCENT || '0');
-    aiRenderProcessor.addEnvironment('GEMINI_DAILY_BUDGET_USD', props.env?.GEMINI_DAILY_BUDGET_USD || '200');
-    aiRenderProcessor.addEnvironment('GEMINI_MAX_BATCH_SIZE', props.env?.GEMINI_MAX_BATCH_SIZE || '50');
-    aiRenderProcessor.addEnvironment('GEMINI_BATCH_TIMEOUT_MS', props.env.GEMINI_BATCH_TIMEOUT_MS);
-    aiRenderProcessor.addEnvironment('GEMINI_API_ENDPOINT', props.env.GEMINI_API_ENDPOINT);
+    aiRenderProcessor.addEnvironment('RENDER_PROVIDER', props.envConfig.RENDER_PROVIDER || 'replicate');
+    aiRenderProcessor.addEnvironment('ALLOW_BEDROCK_FAILOVER', (props.envConfig.ALLOW_BEDROCK_FAILOVER ?? false).toString());
+    aiRenderProcessor.addEnvironment('BEDROCK_MAX_FAILOVER_PER_MIN', props.envConfig.BEDROCK_MAX_FAILOVER_PER_MIN || '3');
+    aiRenderProcessor.addEnvironment('BEDROCK_DAILY_BUDGET_USD', props.envConfig.BEDROCK_DAILY_BUDGET_USD || '50');
+    aiRenderProcessor.addEnvironment('MAX_RENDERS_PER_USER_DAILY', props.envConfig.MAX_RENDERS_PER_USER_DAILY || '50');
+    aiRenderProcessor.addEnvironment('ENABLE_GEMINI_BATCH', (props.envConfig.ENABLE_GEMINI_BATCH ?? false).toString());
+    aiRenderProcessor.addEnvironment('GEMINI_TRAFFIC_PERCENT', props.envConfig.GEMINI_TRAFFIC_PERCENT || '0');
+    aiRenderProcessor.addEnvironment('GEMINI_DAILY_BUDGET_USD', props.envConfig.GEMINI_DAILY_BUDGET_USD || '200');
+    aiRenderProcessor.addEnvironment('GEMINI_MAX_BATCH_SIZE', props.envConfig.GEMINI_MAX_BATCH_SIZE || '50');
+    aiRenderProcessor.addEnvironment('GEMINI_BATCH_TIMEOUT_MS', props.envConfig.GEMINI_BATCH_TIMEOUT_MS);
+    aiRenderProcessor.addEnvironment('GEMINI_API_ENDPOINT', props.envConfig.GEMINI_API_ENDPOINT);
     
     // Billing Processor environment
     billingProcessor.addEnvironment('EVENT_BUS_NAME', this.tryonEventBus.eventBusName);

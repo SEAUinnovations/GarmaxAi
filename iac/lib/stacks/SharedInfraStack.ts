@@ -12,7 +12,7 @@ import { getEnvironmentConfig } from '../../../parameters/config';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 
-export interface SharedInfraStackProps extends cdk.NestedStackProps {
+export interface SharedInfraStackProps extends cdk.StackProps {
   stage: string;
 }
 
@@ -23,7 +23,7 @@ export interface SharedInfraStackProps extends cdk.NestedStackProps {
  * 
  * These resources are shared across backend and frontend stacks
  */
-export class SharedInfraStack extends cdk.NestedStack {
+export class SharedInfraStack extends cdk.Stack {
   public readonly vpc: ec2.IVpc;
   public readonly logsBucket: s3.Bucket;
   public readonly uploadsBucket: s3.Bucket;
