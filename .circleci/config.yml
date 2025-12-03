@@ -119,8 +119,8 @@ jobs:
       - run:
           name: Verify frontend build artifacts
           command: |
-            if [ ! -d "client/dist" ]; then
-              echo "Frontend build failed - client/dist not found"
+            if [ ! -d "dist/public" ]; then
+              echo "Frontend build failed - dist/public not found"
               exit 1
             fi
       - save-workspace
@@ -274,7 +274,7 @@ jobs:
           name: Upload frontend to S3
           command: |
             BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName-dev'].OutputValue" --output text)
-            aws s3 sync client/dist s3://${BUCKET_NAME} --delete
+            aws s3 sync dist/public s3://${BUCKET_NAME} --delete
       - run:
           name: Invalidate CloudFront cache
           command: |
@@ -295,7 +295,7 @@ jobs:
           name: Upload frontend to S3
           command: |
             BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName-qa'].OutputValue" --output text)
-            aws s3 sync client/dist s3://${BUCKET_NAME} --delete
+            aws s3 sync dist/public s3://${BUCKET_NAME} --delete
       - run:
           name: Invalidate CloudFront cache
           command: |
@@ -316,7 +316,7 @@ jobs:
           name: Upload frontend to S3
           command: |
             BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName-prod'].OutputValue" --output text)
-            aws s3 sync client/dist s3://${BUCKET_NAME} --delete
+            aws s3 sync dist/public s3://${BUCKET_NAME} --delete
       - run:
           name: Invalidate CloudFront cache
           command: |
