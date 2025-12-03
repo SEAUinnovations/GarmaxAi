@@ -7,6 +7,7 @@ import createGuidanceBucket from '../Storage/createGuidanceBucket';
 import createRendersBucket from '../Storage/createRendersBucket';
 import createSmplAssetsBucket from '../Storage/createSmplAssetsBucket';
 import createStaticSiteBucket from '../Storage/createStaticSiteBucket';
+import { createApiKeyParameters, type ApiKeyParameters } from '../ParameterStore';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 
@@ -29,6 +30,7 @@ export class SharedInfraStack extends cdk.NestedStack {
   public readonly rendersBucket: s3.Bucket;
   public readonly smplAssetsBucket: s3.Bucket;
   public readonly staticSiteBucket: s3.Bucket;
+  public readonly apiKeyParameters: ApiKeyParameters;
 
   constructor(scope: Construct, id: string, props: SharedInfraStackProps) {
     super(scope, id, props);
@@ -45,6 +47,9 @@ export class SharedInfraStack extends cdk.NestedStack {
     this.rendersBucket = createRendersBucket(this, props.stage, this.logsBucket);
     this.smplAssetsBucket = createSmplAssetsBucket(this, props.stage, this.logsBucket);
     this.staticSiteBucket = createStaticSiteBucket(this, props.stage);
+
+    // Create Parameter Store parameters for centralized API key management
+    this.apiKeyParameters = createApiKeyParameters(this, { stage: props.stage });
 
     // Export bucket names for cross-stack reference
     new cdk.CfnOutput(this, `UploadsBucketName`, {

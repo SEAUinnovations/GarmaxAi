@@ -132,6 +132,10 @@ interface TryonSessionEvent {
  * Processes SQS messages from EventBridge try-on session creation events
  */
 export async function handler(event: any) {
+  // Import here to avoid circular dependency
+  const { loadApiKeys } = require('../parameterStoreConfig');
+  const config = await loadApiKeys();
+  
   console.log('👥 Try-On Processor invoked with', event.Records?.length || 0, 'messages');
 
   const results = [];
@@ -139,7 +143,7 @@ export async function handler(event: any) {
   if (event.Records) {
     for (const record of event.Records) {
       try {
-        const result = await processRecord(record);
+        const result = await processRecord(record, config);
         results.push(result);
       } catch (error: any) {
         console.error('❌ Failed to process record:', error);
@@ -160,7 +164,7 @@ export async function handler(event: any) {
 /**
  * Process individual SQS record containing try-on session creation event
  */
-async function processRecord(record: any): Promise<{ success: boolean; sessionId: string }> {
+async function processRecord(record: any, config: any): Promise<{ success: boolean; sessionId: string }> {
   const startTime = Date.now();
   
   try {
@@ -170,6 +174,7 @@ async function processRecord(record: any): Promise<{ success: boolean; sessionId
     
     console.log(`🎯 Processing try-on session: ${detail.sessionId}`);
     console.log(`👤 User: ${detail.userId}, Quality: ${detail.preferences.renderQuality}`);
+    console.log(`📦 Using buckets from Parameter Store - Uploads: ${config.uploadsBucket}`);
 
     // Step 1: Validate session and quotas
     console.log('🔍 Validating session and user quotas');

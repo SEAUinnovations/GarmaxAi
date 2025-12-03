@@ -41,6 +41,7 @@ export class GarmaxAiStack extends cdk.Stack {
       rendersBucket: sharedInfraStack.rendersBucket,
       smplAssetsBucket: sharedInfraStack.smplAssetsBucket,
       logsBucket: sharedInfraStack.logsBucket,
+      apiKeyParameters: sharedInfraStack.apiKeyParameters,
       apiGateway: api,
       pythonLambda,
       env,

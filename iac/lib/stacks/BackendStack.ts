@@ -16,6 +16,7 @@ import createTryonProcessor from '../Lambda/createTryonProcessor';
 import createEcrRepository from '../ECR/createEcrRepository';
 import createEcsCluster from '../ECS/createEcsCluster';
 import createBudgetMonitoring from '../Monitoring/createBudgetMonitoring';
+import { grantReadApiKeys, type ApiKeyParameters } from '../ParameterStore';
 
 export interface BackendStackProps extends cdk.NestedStackProps {
   stage: string;
@@ -24,6 +25,7 @@ export interface BackendStackProps extends cdk.NestedStackProps {
   guidanceBucket: s3.Bucket;
   rendersBucket: s3.Bucket;
   smplAssetsBucket: s3.Bucket;
+  apiKeyParameters: ApiKeyParameters;
   env: any; // Environment configuration
 }
 
@@ -122,6 +124,12 @@ export class BackendStack extends cdk.NestedStack {
       actions: ['events:PutEvents'],
       resources: [this.tryonEventBus.eventBusArn],
     }));
+
+    // Grant Parameter Store read access to all Lambda functions
+    grantReadApiKeys(props.apiKeyParameters, tryonProcessor);
+    grantReadApiKeys(props.apiKeyParameters, aiRenderProcessor);
+    grantReadApiKeys(props.apiKeyParameters, billingProcessor);
+    grantReadApiKeys(props.apiKeyParameters, pythonLambda);
 
     // Configure environment variables
     this.configureEnvironmentVariables(

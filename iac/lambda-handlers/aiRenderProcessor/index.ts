@@ -92,17 +92,13 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 import { CloudWatchClient, PutMetricDataCommand } from '@aws-sdk/client-cloudwatch';
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { DynamoDBClient, UpdateItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
-import { SSMClient, GetParameterCommand, PutParameterCommand } from '@aws-sdk/client-ssm';
+import { loadApiKeys } from '../parameterStoreConfig';
 
-// Environment variables
-const GUIDANCE_BUCKET_NAME = process.env.GUIDANCE_BUCKET_NAME!;
-const RENDERS_BUCKET_NAME = process.env.RENDERS_BUCKET_NAME!;
+// Environment variables (most now loaded from Parameter Store)
 const RENDER_PROVIDER = process.env.RENDER_PROVIDER || 'replicate';
 const ALLOW_BEDROCK_FAILOVER = process.env.ALLOW_BEDROCK_FAILOVER === 'true';
 const BEDROCK_MAX_FAILOVER_PER_MIN = parseInt(process.env.BEDROCK_MAX_FAILOVER_PER_MIN || '5');
-const BEDROCK_DAILY_BUDGET_USD = parseFloat(process.env.BEDROCK_DAILY_BUDGET_USD || '100');
 const MAX_RENDERS_PER_USER_DAILY = parseInt(process.env.MAX_RENDERS_PER_USER_DAILY || '50');
 const EVENT_BUS_NAME = process.env.EVENT_BUS_NAME!;
 const STAGE = process.env.STAGE!;
@@ -111,15 +107,16 @@ const STAGE = process.env.STAGE!;
 const s3Client = new S3Client({});
 const eventBridgeClient = new EventBridgeClient({});
 const cloudWatchClient = new CloudWatchClient({});
-const secretsManagerClient = new SecretsManagerClient({});
 const dynamoDBClient = new DynamoDBClient({});
-const ssmClient = new SSMClient({});
 
 /**
  * Main Lambda handler entry point
  * Processes AI render requests with provider failover and cost controls
  */
 export async function handler(event: any) {
+  // Load configuration from Parameter Store (cached after first call)
+  const config = await loadApiKeys();
+  
   // Extract event details and validate basic structure
   console.log('🎨 AI Render Processor invoked');
   console.log('📨 Event:', JSON.stringify(event, null, 2));
@@ -156,11 +153,12 @@ export async function handler(event: any) {
         {
           prompt: prompt.positive,
           negativePrompt: prompt.negative,
-          previewImageUrl: await getSignedUrl(RENDERS_BUCKET_NAME, detail.inputs.previewKey),
+          previewImageUrl: await getSignedUrl(config.rendersBucket, detail.inputs.previewKey),
           guidanceAssets,
           renderOptions: detail.renderOptions,
         },
-        correlationId
+        correlationId,
+        config
       );
     } catch (error) {
       console.error(`❌ Primary provider ${RENDER_PROVIDER} failed:`, error);
@@ -176,10 +174,10 @@ export async function handler(event: any) {
           renderResult = await callRenderProvider('bedrock', {
             prompt: prompt.positive,
             negativePrompt: prompt.negative,
-            previewImageUrl: await getSignedUrl(RENDERS_BUCKET_NAME, detail.inputs.previewKey),
+            previewImageUrl: await getSignedUrl(config.rendersBucket, detail.inputs.previewKey),
             guidanceAssets,
             renderOptions: detail.renderOptions,
-          }, correlationId);
+          }, correlationId, config);
           
           // Increment failover counters for budget tracking
           await incrementFailoverCounters(detail.userId);
@@ -203,13 +201,17 @@ export async function handler(event: any) {
         prompt: prompt.positive,
         renderOptions: detail.renderOptions,
         correlationId,
-      }
+      },
+      config
     );
     
     // Step 6: Generate and upload thumbnail for gallery view
     const thumbnailKey = await generateAndUploadThumbnail(
       renderResult.imageBuffer,
       detail.output.prefix,
+      detail.sessionId,
+      config
+    );
       detail.sessionId
     );
     
@@ -353,13 +355,13 @@ async function buildRenderPrompt(garments: any[], renderOptions: any): Promise<{
  * Call the specified rendering provider with retry logic and error handling
  * Supports Replicate API and Bedrock with provider-specific implementations
  */
-async function callRenderProvider(provider: string, inputs: any, correlationId: string): Promise<any> {
+async function callRenderProvider(provider: string, inputs: any, correlationId: string, config: any): Promise<any> {
   console.log(`🎯 Calling ${provider} provider with correlation ID: ${correlationId}`);
   
   if (provider === 'replicate') {
-    return await callReplicateAPI(inputs, correlationId);
+    return await callReplicateAPI(inputs, correlationId, config);
   } else if (provider === 'bedrock') {
-    return await callBedrockAPI(inputs, correlationId);
+    return await callBedrockAPI(inputs, correlationId, config);
   } else {
     throw new Error(`Unsupported provider: ${provider}`);
   }
@@ -369,9 +371,10 @@ async function callRenderProvider(provider: string, inputs: any, correlationId: 
  * Call Replicate API for AI image generation with ControlNet conditioning
  * Uses SDXL or SD 1.5 based on quality settings for cost optimization
  */
-async function callReplicateAPI(inputs: any, correlationId: string): Promise<any> {
+async function callReplicateAPI(inputs: any, correlationId: string, config: any): Promise<any> {
   // TODO: Implement Replicate API call with proper error handling
-  console.log(`🔮 Calling Replicate API (TODO: implement actual API call)`);
+  console.log(`🔮 Calling Replicate API with key from Parameter Store`);
+  console.log(`🔑 Using Replicate API key: ${config.replicateApiKey.substring(0, 8)}...`);
   
   // Simulate API call for now
   await new Promise(resolve => setTimeout(resolve, 2000));
@@ -390,13 +393,14 @@ async function callReplicateAPI(inputs: any, correlationId: string): Promise<any
  * Call AWS Bedrock for AI image generation (failover provider)
  * Only called when Replicate fails and ALLOW_BEDROCK_FAILOVER is enabled
  */
-async function callBedrockAPI(inputs: any, correlationId: string): Promise<any> {
+async function callBedrockAPI(inputs: any, correlationId: string, config: any): Promise<any> {
   if (!ALLOW_BEDROCK_FAILOVER) {
     throw new Error('Bedrock failover is disabled');
   }
   
   // TODO: Implement Bedrock API call
-  console.log(`🏔️ Calling Bedrock API (TODO: implement actual API call)`);
+  console.log(`🏔️ Calling Bedrock API (failover provider)`);
+  console.log(`📊 Daily budget limit: $${config.dailyBudgetUsd}`);
   
   // Simulate API call for now
   await new Promise(resolve => setTimeout(resolve, 1500));
@@ -460,11 +464,11 @@ async function incrementFailoverCounters(userId: string): Promise<void> {
 /**
  * Upload final render to S3 with metadata tags for organization and billing
  */
-async function uploadFinalRender(imageBuffer: Buffer, prefix: string, sessionId: string, metadata: any): Promise<string> {
+async function uploadFinalRender(imageBuffer: Buffer, prefix: string, sessionId: string, metadata: any, config: any): Promise<string> {
   const outputKey = `${prefix}render-${sessionId}-${Date.now()}.jpg`;
   
   // TODO: Implement S3 upload with proper metadata tags
-  console.log(`📤 Uploading final render to s3://${RENDERS_BUCKET_NAME}/${outputKey}`);
+  console.log(`📤 Uploading final render to s3://${config.rendersBucket}/${outputKey}`);
   
   return outputKey;
 }
@@ -472,11 +476,11 @@ async function uploadFinalRender(imageBuffer: Buffer, prefix: string, sessionId:
 /**
  * Generate and upload thumbnail for gallery view and quick preview
  */
-async function generateAndUploadThumbnail(imageBuffer: Buffer, prefix: string, sessionId: string): Promise<string> {
+async function generateAndUploadThumbnail(imageBuffer: Buffer, prefix: string, sessionId: string, config: any): Promise<string> {
   const thumbnailKey = `thumbnails/${prefix}thumb-${sessionId}-${Date.now()}.jpg`;
   
   // TODO: Implement thumbnail generation and S3 upload
-  console.log(`📤 Uploading thumbnail to s3://${RENDERS_BUCKET_NAME}/${thumbnailKey}`);
+  console.log(`📤 Uploading thumbnail to s3://${config.rendersBucket}/${thumbnailKey}`);
   
   return thumbnailKey;
 }

@@ -8,8 +8,38 @@
 
 **GARMAX AI** is a modern full-stack platform for AI-powered virtual try-on with photo-first experiences, SMPL-based 3D pose estimation, subscription & credit management, and scalable rendering pipelines. Features production-ready AWS serverless architecture with event-driven processing, separate secure buckets, and intelligent cost management.
 
+## 🔍 Key Files Quick Reference
+
+### 🎨 AI Rendering Pipeline
+- **[`src/services/aiRenderingService.ts`](src/services/aiRenderingService.ts)** - Main AI rendering coordinator with Replicate/Gemini routing
+- **[`src/services/geminiImageService.ts`](src/services/geminiImageService.ts)** - Google Gemini Imagen 3 API integration with batch processing
+- **[`src/services/batchImageService.ts`](src/services/batchImageService.ts)** - Hybrid batch orchestrator for efficient AI rendering
+- **[`iac/lambda-handlers/aiRenderProcessor/index.ts`](iac/lambda-handlers/aiRenderProcessor/index.ts)** - Lambda handler for AI image generation processing
+
+### 🤖 SMPL 3D Processing
+- **[`smpl-processor/smpl_processor.py`](smpl-processor/smpl_processor.py)** - Complete SMPL pose estimation pipeline (ROMP + SMPLify-X)
+- **[`iac/lambda-handlers/tryonProcessor/index.ts`](iac/lambda-handlers/tryonProcessor/index.ts)** - Lambda handler for 3D try-on processing
+- **[`src/services/garmentAnalysisService.ts`](src/services/garmentAnalysisService.ts)** - AWS Rekognition garment classification
+
+### ⚡ Event Processing
+- **[`src/websocket/tryonWebSocket.ts`](src/websocket/tryonWebSocket.ts)** - Real-time status updates via WebSocket
+- **[`src/services/jobStatusService.ts`](src/services/jobStatusService.ts)** - Job status management and notifications
+- **[`iac/lib/EventBridge/createTryonEventBus.ts`](iac/lib/EventBridge/createTryonEventBus.ts)** - EventBridge configuration for event-driven architecture
+
+### 🏗️ Infrastructure & Config
+- **[`iac/lib/garmaxAiStack.ts`](iac/lib/garmaxAiStack.ts)** - Main CDK stack with all AWS resources
+- **[`parameters/config.ts`](parameters/config.ts)** - Environment configuration and feature flags
+- **[`shared/schema.ts`](shared/schema.ts)** - TypeScript schemas for events and data structures
+- **[`scripts/ops/`](scripts/ops/)** - Idle teardown/restore scripts for cost optimization
+
+### 🎮 Frontend Components
+- **[`client/src/pages/VirtualTryonStudio.tsx`](client/src/pages/VirtualTryonStudio.tsx)** - Main try-on interface
+- **[`client/src/components/tryon/TryonCanvas.tsx`](client/src/components/tryon/TryonCanvas.tsx)** - React Three Fiber 3D canvas
+- **[`client/src/components/tryon/ProcessingModal.tsx`](client/src/components/tryon/ProcessingModal.tsx)** - Real-time processing status UI
+
 ## 📋 Table of Contents
 
+- [Key Files Quick Reference](#-key-files-quick-reference)
 - [Features](#-features) 
 - [Architecture Overview](#-architecture-overview)
 - [Rendering Pipeline](#-rendering-pipeline)
@@ -104,28 +134,71 @@ graph LR
 
 ## 🎨 Rendering Pipeline
 
-### SMPL-Based Photo Processing
+### Complete AI Rendering Workflow
 
+```mermaid
+flowchart TD
+    A[📸 User Photo Upload] --> B[🔍 SMPL Pose Estimation]
+    B --> C[🎯 Guidance Asset Generation]
+    C --> D[🎨 AI Rendering Pipeline]
+    D --> E[✨ Final Try-On Result]
+    
+    subgraph "SMPL Processing (tryonProcessor)"
+        B1[ROMP: 3D Pose Recovery]
+        B2[SMPLify-X: Body Mesh Fitting]
+        B3[Joint/Limb Detection]
+        B --> B1 --> B2 --> B3
+    end
+    
+    subgraph "Guidance Generation"
+        C1[Depth Maps<br/>3D consistency]
+        C2[Normal Maps<br/>Lighting]
+        C3[Pose Maps<br/>Limb alignment]
+        C4[Segmentation Masks<br/>Clothing regions]
+        C --> C1
+        C --> C2
+        C --> C3
+        C --> C4
+    end
+    
+    subgraph "AI Rendering (aiRenderProcessor)"
+        D1{Traffic Router<br/>userId % 100}
+        D2[Gemini Batch<br/>Processing]
+        D3[Replicate Nano<br/>Banana Pro]
+        D4[PhotoMaker<br/>Fallback]
+        D5[SDXL<br/>Final Fallback]
+        
+        D --> D1
+        D1 -->|"% traffic"| D2
+        D1 -->|"remaining"| D3
+        D2 -->|"failure"| D4
+        D3 -->|"failure"| D4
+        D4 -->|"failure"| D5
+    end
+    
+    C1 --> D
+    C2 --> D
+    C3 --> D
+    C4 --> D
 ```
-📸 User Photo Upload
-    ↓
-🔍 SMPL Pose Estimation (TryonProcessor)
-    ├── ROMP: 3D human pose recovery
-    ├── SMPLify-X: Body mesh fitting
-    └── Joint/limb detection
-    ↓
-🎯 Guidance Asset Generation
-    ├── Depth maps (for 3D consistency)
-    ├── Normal maps (for lighting)
-    ├── Pose maps (for limb alignment)
-    └── Segmentation masks (for clothing regions)
-    ↓
-🎨 AI Rendering (AiRenderProcessor)
-    ├── ControlNet conditioning with guidance
-    ├── Fashion-specific diffusion models
-    └── Garment texture/fit optimization
-    ↓
-✨ Final Try-On Result
+
+### Provider Routing & Failover Chain
+
+**Traffic Distribution** ([`aiRenderingService.ts`](src/services/aiRenderingService.ts))
+```typescript
+// Hash-based routing for consistent user experience
+const shouldUseGemini = hash(userId) % 100 < GEMINI_TRAFFIC_PERCENT;
+
+// Gemini Route: Gemini Batch → PhotoMaker → SDXL
+// Replicate Route: Nano Banana → PhotoMaker → SDXL
+```
+
+**SMPL → ControlNet Pipeline** ([`smpl-processor/smpl_processor.py`](smpl-processor/smpl_processor.py))
+```python
+# Complete 3D processing workflow
+pose_results = self._estimate_pose_romp(image_path)
+mesh_results = self._fit_body_mesh(pose_results) 
+guidance_assets = self._generate_guidance_assets(mesh_results)
 ```
 
 ### Rendering Providers
