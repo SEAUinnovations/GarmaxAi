@@ -15,7 +15,6 @@ export default function createApiGateway(stack: cdk.Stack, lambdaFn: lambda.Func
   });
 
   const integration = new apigateway.LambdaIntegration(lambdaFn);
-  const root = api.root.addResource('');
   // Add a simple proxy resource to forward all paths
   const proxy = api.root.addResource('{proxy+}');
   proxy.addMethod('ANY', integration);

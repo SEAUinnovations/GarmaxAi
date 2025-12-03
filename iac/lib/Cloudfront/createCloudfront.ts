@@ -29,15 +29,23 @@ try {
 
     
 // Reference backend SSL certificate for HTTPS (use backend-specific cert if provided)
-const backendCertArn = (env.BackendAcmCert && env.BackendAcmCert[region]?.id)
-  ? env.BackendAcmCert[region].id
-  : env.AcmCert[region].id;
-const certificate = certificatemanager.Certificate.fromCertificateArn(stack, 'CloudfrontCert', backendCertArn);
+// Skip certificate and custom domain if using placeholder values
+let certificate: certificatemanager.ICertificate | undefined;
+let distributionDomain: string | undefined;
 
-// Determine domain for this API distribution (backend subdomain by default)
-const distributionDomain = (env as any).backendDomainName
-  ? (env as any).backendDomainName
-  : `backend.${env.hostedZoneName}`;
+if (!env.hostedZoneName.includes('PLACEHOLDER')) {
+  const backendCertArn = (env.BackendAcmCert && env.BackendAcmCert[region]?.id)
+    ? env.BackendAcmCert[region].id
+    : env.AcmCert[region].id;
+  
+  if (!backendCertArn.includes('PLACEHOLDER')) {
+    certificate = certificatemanager.Certificate.fromCertificateArn(stack, 'CloudfrontCert', backendCertArn);
+  }
+  
+  distributionDomain = (env as any).backendDomainName
+    ? (env as any).backendDomainName
+    : `backend.${env.hostedZoneName}`;
+}
 
     // Create a CloudFront distribution. If `apiDomain` is provided, use it as an HTTP origin
     const origin = apiDomain
@@ -59,14 +67,16 @@ const distributionDomain = (env as any).backendDomainName
       enabled: true,
       enableIpv6: true,
       webAclId: (env as any).wafArn || WAF?.attrArn,
-      domainNames: [distributionDomain],
+      domainNames: distributionDomain ? [distributionDomain] : undefined,
       certificate: certificate,
     });
 
     // Create or reference a Route53 hosted zone and add a DNS record (Alias A or CNAME) to CloudFront
-    try {
-      const zoneName = (env as any).backendHostedZoneName || env.hostedZoneName;
-      const hostedZone = route53.HostedZone.fromLookup(stack, 'GarmaxAiHostedZone', { domainName: zoneName });
+    // Only if custom domain is configured
+    if (distributionDomain && certificate) {
+      try {
+        const zoneName = (env as any).backendHostedZoneName || env.hostedZoneName;
+        const hostedZone = route53.HostedZone.fromLookup(stack, 'GarmaxAiHostedZone', { domainName: zoneName });
 
       if ((env as any).useCnameForBackend) {
         new route53.CnameRecord(stack, `GarmaxAiCloudFrontCname-${stage}`, {
@@ -83,8 +93,9 @@ const distributionDomain = (env as any).backendDomainName
           ttl: Duration.minutes(5),
         });
       }
-    } catch (e) {
-      // If hosted zone lookup fails during synth, skip creating record. create manually.
+      } catch (e) {
+        // If hosted zone lookup fails during synth, skip creating record. create manually.
+      }
     }
 
 

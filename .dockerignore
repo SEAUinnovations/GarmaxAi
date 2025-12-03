@@ -1,0 +1,47 @@
+# CDK output directory (prevents recursive copying in Lambda assets)
+iac/cdk.out/
+**/cdk.out/
+
+# Node modules
+**/node_modules/
+node_modules/
+iac/node_modules/
+client/node_modules/
+
+# Git
+**/.git/
+.git/
+
+# Build outputs
+**/dist/
+dist/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+tmp/
+temp/

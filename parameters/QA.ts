@@ -1,17 +1,58 @@
 export default {
-	vpc: { "us-east-1": { id: "PLACEHOLDER_VPC_ID" }, "us-west-2": { id: "PLACEHOLDER_VPC_ID" } },
-    awsAccountNumber: "PLACEHOLDER_AWS_ACCOUNT",
-    STAGE: "QA",
-    LOG_LEVEL: 'info',
-    latestContainerTag: "latest",
-    wafArn: "PLACEHOLDER_WAF_ARN",
-    frontendDomainName: "PLACEHOLDER_HOSTED_ZONE",
-    backendDomainName: "backend.PLACEHOLDER_HOSTED_ZONE",
-    backendHostedZoneName: "PLACEHOLDER_HOSTED_ZONE",
-    backendHostedZoneId: "PLACEHOLDER_HOSTED_ZONE_ID",
+	vpc: {
+		"us-east-1": { id: "PLACEHOLDER_VPC_ID" },
+		"us-west-2": { id: "PLACEHOLDER_VPC_ID" },
+	},
+    S3_BUCKET: 'PLACEHOLDER_S3_BUCKET',
+    TEMP_BUCKET: "",
+    AcmCert: {
+        "us-east-1": { id: "arn:aws:acm:us-east-1:920792187297:certificate/8b4e5879-bdfd-4975-b69d-55942368b906" },
+        "us-west-2": { id: "PLACEHOLDER_ACM_ARN" }
+    },
+    certificateid: {
+        "us-east-1": { id: "8b4e5879-bdfd-4975-b69d-55942368b906" },
+        "us-west-2": { id: "PLACEHOLDER_CERT_ID" }
+    },
+    ecrname: { "us-east-1": { name: "garmaxecr" }, "us-west-2": { name: "PLACEHOLDER_ECR" } },
+    hostedZoneName: "qa.garmaxai.com",
+    hostedZoneId: "PLACEHOLDER_QA_HOSTED_ZONE_ID",
+    frontendDomainName: "qa.garmaxai.com",
+    backendDomainName: "qa-be.garmaxai.com",
+    backendHostedZoneName: "qa-be.garmaxai.com",
+    backendHostedZoneId: "Z08617541QAW22A1V5U0J",
     BackendAcmCert: {
-        "us-east-1": { id: "PLACEHOLDER_BACKEND_ACM_ARN" },
+        "us-east-1": { id: "arn:aws:acm:us-east-1:920792187297:certificate/a84cac98-408d-4640-bddc-d8662bc4ca38" },
         "us-west-2": { id: "PLACEHOLDER_BACKEND_ACM_ARN" }
     },
     useCnameForBackend: false,
+    TaskDefName: "PLACEHOLDER_TASKDEF",
+    ServiceName: {
+        "us-east-1": { id1: 'PLACEHOLDER_SERVICE' },
+        "us-west-2": { id1: 'PLACEHOLDER_SERVICE' }
+    },
+    clusterinfo: {
+        "us-east-1": {
+            name: "PLACEHOLDER_CLUSTER",
+            memory: 3072,
+            minCapacity: 1,
+            maxCapacity: 6,
+            cpu: 512,
+        },
+        "us-west-2": {
+            name: "PLACEHOLDER_CLUSTER",
+            memory: 3072,
+            minCapacity: 1,
+            maxCapacity: 6,
+            cpu: 512,
+        },
+    },
+    ApiName: { "us-east-1": { id: "PLACEHOLDER_API" }, "us-west-2": { id: "PLACEHOLDER_API" } },
+    Fargateclustername: "PLACEHOLDER_FARGATE_CLUSTER",
+    FargateContainerName: "PLACEHOLDER_FARGATE_CONTAINER",
+    NetworkloadBalancerName: "PLACEHOLDER_NLB",
+    awsAccountNumber: "920792187297",
+    APP_ID: "PLACEHOLDER_LAMBDA_ARN",
+    STAGE: "QA",
+    LOG_LEVEL: 'info',
+    wafArn: "PLACEHOLDER_WAF_ARN",
 }

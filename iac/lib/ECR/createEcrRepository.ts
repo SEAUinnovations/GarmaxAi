@@ -41,29 +41,29 @@ export default function createEcrRepository(
     // Lifecycle policy to manage storage costs
     lifecycleRules: [
       {
-        // Keep only the last 10 tagged images
-        rulePriority: 1,
-        description: 'Keep last 10 tagged images',
-        tagStatus: ecr.TagStatus.TAGGED,
-        maxImageCount: 10,
-      },
-      {
         // Delete untagged images after 1 day (cleanup failed builds)
-        rulePriority: 2, 
+        rulePriority: 1, 
         description: 'Delete untagged images after 1 day',
         tagStatus: ecr.TagStatus.UNTAGGED,
         maxImageAge: cdk.Duration.days(1),
       },
       {
         // Keep production images longer for rollback capability
-        rulePriority: 3,
+        rulePriority: 2,
         description: 'Keep production images for 30 days',
         tagStatus: ecr.TagStatus.TAGGED,
         tagPrefixList: ['prod-', 'release-'],
         maxImageAge: stage === 'PROD' 
           ? cdk.Duration.days(30) 
           : cdk.Duration.days(7),
-      }
+      },
+      {
+        // Keep only the last 10 images of any type (ANY must have highest priority)
+        rulePriority: 3,
+        description: 'Keep last 10 images',
+        tagStatus: ecr.TagStatus.ANY,
+        maxImageCount: 10,
+      },
     ],
     
     // Enable encryption at rest

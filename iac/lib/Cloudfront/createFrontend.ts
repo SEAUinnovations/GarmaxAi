@@ -21,11 +21,18 @@ export default function createFrontend(
 ) {
   const { region, domainName, wafArn } = props;
 
-  const certificate = certificatemanager.Certificate.fromCertificateArn(
-    stack,
-    `FrontendCertificate-${stage}`,
-    env.AcmCert[region].id,
-  );
+  // Only create certificate and use custom domain if not using placeholder values
+  let certificate: certificatemanager.ICertificate | undefined;
+  let domainNames: string[] | undefined;
+  
+  if (!env.AcmCert[region].id.includes('PLACEHOLDER') && !domainName.includes('PLACEHOLDER')) {
+    certificate = certificatemanager.Certificate.fromCertificateArn(
+      stack,
+      `FrontendCertificate-${stage}`,
+      env.AcmCert[region].id,
+    );
+    domainNames = [domainName];
+  }
 
   // Use OAI for private S3 origin access
   const oai = new cloudfront.OriginAccessIdentity(stack, `FrontendOAI-${stage}`);
@@ -83,7 +90,7 @@ export default function createFrontend(
     },
     defaultRootObject: 'index.html',
     certificate,
-    domainNames: [domainName],
+    domainNames,
     webAclId: wafArn,
     enableIpv6: true,
     enableLogging: false,
@@ -93,19 +100,21 @@ export default function createFrontend(
     ],
   });
 
-  // DNS Alias record to CloudFront
-  try {
-    const hostedZone = route53.HostedZone.fromLookup(stack, `FrontendHostedZone-${stage}`, {
-      domainName: env.hostedZoneName,
-    });
-    new route53.ARecord(stack, `FrontendAliasRecord-${stage}`, {
-      recordName: domainName,
-      zone: hostedZone,
-      target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
-      ttl: Duration.minutes(5),
-    });
-  } catch (_e) {
-    // If zone lookup fails during synth, skip record creation
+  // DNS Alias record to CloudFront (only if custom domain is configured)
+  if (certificate && domainNames) {
+    try {
+      const hostedZone = route53.HostedZone.fromLookup(stack, `FrontendHostedZone-${stage}`, {
+        domainName: env.hostedZoneName,
+      });
+      new route53.ARecord(stack, `FrontendAliasRecord-${stage}`, {
+        recordName: domainName,
+        zone: hostedZone,
+        target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
+        ttl: Duration.minutes(5),
+      });
+    } catch (_e) {
+      // If zone lookup fails during synth, skip record creation
+    }
   }
 
   return distribution;

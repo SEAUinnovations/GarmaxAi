@@ -20,7 +20,7 @@ import { grantReadApiKeys, type ApiKeyParameters } from '../ParameterStore';
 
 export interface BackendStackProps extends cdk.NestedStackProps {
   stage: string;
-  vpc: ec2.Vpc;
+  vpc: ec2.IVpc;
   uploadsBucket: s3.Bucket;
   guidanceBucket: s3.Bucket;
   rendersBucket: s3.Bucket;
@@ -219,15 +219,15 @@ export class BackendStack extends cdk.NestedStack {
     aiRenderProcessor.addEnvironment('GUIDANCE_BUCKET_NAME', props.guidanceBucket.bucketName);
     aiRenderProcessor.addEnvironment('RENDERS_BUCKET_NAME', props.rendersBucket.bucketName);
     aiRenderProcessor.addEnvironment('EVENT_BUS_NAME', this.tryonEventBus.eventBusName);
-    aiRenderProcessor.addEnvironment('RENDER_PROVIDER', props.env.RENDER_PROVIDER);
-    aiRenderProcessor.addEnvironment('ALLOW_BEDROCK_FAILOVER', props.env.ALLOW_BEDROCK_FAILOVER.toString());
-    aiRenderProcessor.addEnvironment('BEDROCK_MAX_FAILOVER_PER_MIN', props.env.BEDROCK_MAX_FAILOVER_PER_MIN);
-    aiRenderProcessor.addEnvironment('BEDROCK_DAILY_BUDGET_USD', props.env.BEDROCK_DAILY_BUDGET_USD);
-    aiRenderProcessor.addEnvironment('MAX_RENDERS_PER_USER_DAILY', props.env.MAX_RENDERS_PER_USER_DAILY);
-    aiRenderProcessor.addEnvironment('ENABLE_GEMINI_BATCH', props.env.ENABLE_GEMINI_BATCH.toString());
-    aiRenderProcessor.addEnvironment('GEMINI_TRAFFIC_PERCENT', props.env.GEMINI_TRAFFIC_PERCENT);
-    aiRenderProcessor.addEnvironment('GEMINI_DAILY_BUDGET_USD', props.env.GEMINI_DAILY_BUDGET_USD);
-    aiRenderProcessor.addEnvironment('GEMINI_MAX_BATCH_SIZE', props.env.GEMINI_MAX_BATCH_SIZE);
+    aiRenderProcessor.addEnvironment('RENDER_PROVIDER', props.env?.RENDER_PROVIDER || 'replicate');
+    aiRenderProcessor.addEnvironment('ALLOW_BEDROCK_FAILOVER', (props.env?.ALLOW_BEDROCK_FAILOVER ?? false).toString());
+    aiRenderProcessor.addEnvironment('BEDROCK_MAX_FAILOVER_PER_MIN', props.env?.BEDROCK_MAX_FAILOVER_PER_MIN || '3');
+    aiRenderProcessor.addEnvironment('BEDROCK_DAILY_BUDGET_USD', props.env?.BEDROCK_DAILY_BUDGET_USD || '50');
+    aiRenderProcessor.addEnvironment('MAX_RENDERS_PER_USER_DAILY', props.env?.MAX_RENDERS_PER_USER_DAILY || '50');
+    aiRenderProcessor.addEnvironment('ENABLE_GEMINI_BATCH', (props.env?.ENABLE_GEMINI_BATCH ?? false).toString());
+    aiRenderProcessor.addEnvironment('GEMINI_TRAFFIC_PERCENT', props.env?.GEMINI_TRAFFIC_PERCENT || '0');
+    aiRenderProcessor.addEnvironment('GEMINI_DAILY_BUDGET_USD', props.env?.GEMINI_DAILY_BUDGET_USD || '200');
+    aiRenderProcessor.addEnvironment('GEMINI_MAX_BATCH_SIZE', props.env?.GEMINI_MAX_BATCH_SIZE || '50');
     aiRenderProcessor.addEnvironment('GEMINI_BATCH_TIMEOUT_MS', props.env.GEMINI_BATCH_TIMEOUT_MS);
     aiRenderProcessor.addEnvironment('GEMINI_API_ENDPOINT', props.env.GEMINI_API_ENDPOINT);
     

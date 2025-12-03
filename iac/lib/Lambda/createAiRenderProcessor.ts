@@ -78,8 +78,7 @@ export default function createAiRenderProcessor(
       // EventBridge configuration for status updates
       EVENT_BUS_NAME: env.EVENT_BUS_NAME || `GarmaxAi-Tryon-${stage}`,
       
-      // AWS region and stage for service configuration
-      AWS_REGION: stack.region,
+      // AWS stage for service configuration
       STAGE: stage,
     },
     
@@ -90,6 +89,7 @@ export default function createAiRenderProcessor(
       target: 'es2020',
       externalModules: [
         'aws-sdk', // Use AWS SDK v2 from Lambda runtime
+        '@aws-sdk/*', // AWS SDK v3 modules
       ],
     },
   });

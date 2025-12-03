@@ -212,8 +212,6 @@ export async function handler(event: any) {
       detail.sessionId,
       config
     );
-      detail.sessionId
-    );
     
     // Step 7: Publish completion event for session update
     console.log(`📢 Publishing render completion event`);

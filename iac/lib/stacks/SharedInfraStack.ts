@@ -23,7 +23,7 @@ export interface SharedInfraStackProps extends cdk.NestedStackProps {
  * These resources are shared across backend and frontend stacks
  */
 export class SharedInfraStack extends cdk.NestedStack {
-  public readonly vpc: ec2.Vpc;
+  public readonly vpc: ec2.IVpc;
   public readonly logsBucket: s3.Bucket;
   public readonly uploadsBucket: s3.Bucket;
   public readonly guidanceBucket: s3.Bucket;
