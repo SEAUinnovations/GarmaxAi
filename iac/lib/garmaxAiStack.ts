@@ -5,7 +5,6 @@ import { SharedInfraStack } from './stacks/SharedInfraStack';
 import { BackendStack } from './stacks/BackendStack';
 import { FrontendStack } from './stacks/FrontendStack';
 import createBudgetMonitoring from './Monitoring/createBudgetMonitoring';
-import createVpc from './VPC/createVPC';
 
 export class GarmaxAiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -14,8 +13,6 @@ export class GarmaxAiStack extends cdk.Stack {
     // Get environment configuration based on STAGE environment variable
     const stage = process.env.STAGE || 'dev';
     const env = getEnvironmentConfig(stage);
-    
-    const vpc = createVpc(this, this.region || cdk.Stack.of(this).region, env);
 
     // Deploy nested stacks for shared infrastructure, backend, and frontend
     const sharedInfraStack = new SharedInfraStack(this, `SharedInfra-${stage}`, {
