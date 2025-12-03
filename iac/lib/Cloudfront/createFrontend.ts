@@ -38,7 +38,7 @@ export default function createFrontend(
   const oai = new cloudfront.OriginAccessIdentity(stack, `FrontendOAI-${stage}`);
   bucket.grantRead(oai);
 
-  const origin = new origins.S3Origin(bucket, {
+  const origin = origins.S3BucketOrigin.withOriginAccessIdentity(bucket, {
     originAccessIdentity: oai,
   });
 

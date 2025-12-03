@@ -87,7 +87,6 @@ export function createApiKeyParameters(
     description: 'Replicate API key for AI rendering services',
     stringValue: 'PLACEHOLDER_UPDATE_AFTER_DEPLOY',
     tier: aws_ssm.ParameterTier.STANDARD,
-    type: aws_ssm.ParameterType.SECURE_STRING,
   });
 
   // Stripe Secret Key (SecureString)
@@ -96,7 +95,6 @@ export function createApiKeyParameters(
     description: 'Stripe secret key for payment processing',
     stringValue: 'PLACEHOLDER_UPDATE_AFTER_DEPLOY',
     tier: aws_ssm.ParameterTier.STANDARD,
-    type: aws_ssm.ParameterType.SECURE_STRING,
   });
 
   // Stripe Webhook Secret (SecureString)
@@ -105,7 +103,6 @@ export function createApiKeyParameters(
     description: 'Stripe webhook secret for signature verification',
     stringValue: 'PLACEHOLDER_UPDATE_AFTER_DEPLOY',
     tier: aws_ssm.ParameterTier.STANDARD,
-    type: aws_ssm.ParameterType.SECURE_STRING,
   });
 
   // Stripe Price IDs (String - not sensitive)
@@ -158,7 +155,6 @@ export function createApiKeyParameters(
     description: 'Redis connection URL with credentials',
     stringValue: 'PLACEHOLDER_UPDATE_AFTER_DEPLOY',
     tier: aws_ssm.ParameterTier.STANDARD,
-    type: aws_ssm.ParameterType.SECURE_STRING,
   });
 
   // Database URL (SecureString - contains credentials)
@@ -167,7 +163,6 @@ export function createApiKeyParameters(
     description: 'PostgreSQL connection URL with credentials',
     stringValue: 'PLACEHOLDER_UPDATE_AFTER_DEPLOY',
     tier: aws_ssm.ParameterTier.STANDARD,
-    type: aws_ssm.ParameterType.SECURE_STRING,
   });
 
   // RDS-specific parameters (created by CDK, stored here for reference)
@@ -190,7 +185,6 @@ export function createApiKeyParameters(
     description: 'RDS master password',
     stringValue: 'PLACEHOLDER_UPDATE_AFTER_DEPLOY',
     tier: aws_ssm.ParameterTier.STANDARD,
-    type: aws_ssm.ParameterType.SECURE_STRING,
   });
 
   // Frontend URL (String)
@@ -281,7 +275,6 @@ export function createApiKeyParameters(
     description: 'Google service account JSON for Gemini API authentication',
     stringValue: 'PLACEHOLDER_UPDATE_AFTER_DEPLOY',
     tier: aws_ssm.ParameterTier.STANDARD,
-    type: aws_ssm.ParameterType.SECURE_STRING,
   });
 
   // Application Security
@@ -290,7 +283,6 @@ export function createApiKeyParameters(
     description: 'Internal API key for service-to-service authentication',
     stringValue: 'PLACEHOLDER_UPDATE_AFTER_DEPLOY',
     tier: aws_ssm.ParameterTier.STANDARD,
-    type: aws_ssm.ParameterType.SECURE_STRING,
   });
 
   const jwtSecret = new aws_ssm.StringParameter(scope, 'JwtSecret', {
@@ -298,7 +290,6 @@ export function createApiKeyParameters(
     description: 'JWT secret for token signing',
     stringValue: 'PLACEHOLDER_UPDATE_AFTER_DEPLOY',
     tier: aws_ssm.ParameterTier.STANDARD,
-    type: aws_ssm.ParameterType.SECURE_STRING,
   });
 
   return {
