@@ -1,5 +1,5 @@
 export default {
-	vpc: { "us-east-1": { id: "vpc-00164c10786d24836" }, "us-west-2": { id: "vpc-00164c10786d24836" } },
+	vpc: { "us-east-1": { id: "vpc-0410b9fefa55a32bc" }, "us-west-2": { id: "vpc-0410b9fefa55a32bc" } },
     S3_BUCKET: 'PLACEHOLDER_S3_BUCKET',
     TEMP_BUCKET: "",
     AcmCert: {
