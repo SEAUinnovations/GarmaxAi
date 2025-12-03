@@ -322,26 +322,26 @@ workflows:
     jobs:
       # Step 1: Checkout and setup
       - checkout-code:
-          context: garmaxai-aws
+          context: garmaxai-aws-deployment-prod
 
       # Step 2: Parallel build and test
       - build-backend:
-          context: garmaxai-aws
+          context: garmaxai-aws-deployment-prod
           requires:
             - checkout-code
 
       - build-frontend:
-          context: garmaxai-aws
+          context: garmaxai-aws-deployment-prod
           requires:
             - checkout-code
 
       - test-backend:
-          context: garmaxai-aws
+          context: garmaxai-aws-deployment-prod
           requires:
             - checkout-code
 
       - test-frontend:
-          context: garmaxai-aws
+          context: garmaxai-aws-deployment-prod
           requires:
             - checkout-code
 
@@ -364,7 +364,7 @@ workflows:
 
       # Step 4: Build Docker images (only after security scans pass)
       - build-docker-images:
-          context: garmaxai-aws
+          context: garmaxai-aws-deployment-prod
           requires:
             - build-backend
             - test-backend
@@ -380,7 +380,7 @@ workflows:
 
       # Step 5: Deploy to development (auto-deploy on develop branch)
       - deploy-dev:
-          context: garmaxai-aws-dev
+          context: garmaxai-aws-deployment-prod
           requires:
             - build-backend
             - build-frontend
@@ -395,7 +395,7 @@ workflows:
 
       # Step 6: Deploy to QA (auto-deploy on qa branch)
       - deploy-qa:
-          context: garmaxai-aws-qa
+          context: garmaxai-aws-deployment-prod
           requires:
             - build-backend
             - build-frontend
@@ -424,7 +424,7 @@ workflows:
               only: main
 
       - deploy-prod:
-          context: garmaxai-aws-prod
+          context: garmaxai-aws-deployment-prod
           requires:
             - hold-prod-approval
           filters:
