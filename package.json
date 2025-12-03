@@ -124,6 +124,7 @@
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "^3.943.0",
     "@aws-sdk/client-ssm": "^3.943.0",
+    "snyk": "^1.1294.1",
     "@replit/vite-plugin-cartographer": "^0.4.4",
     "@replit/vite-plugin-dev-banner": "^0.1.1",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
