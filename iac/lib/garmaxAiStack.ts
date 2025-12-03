@@ -36,7 +36,9 @@ export class GarmaxAiStack extends cdk.Stack {
     const frontendStack = new FrontendStack(this, `Frontend-${stage}`, {
       stage,
       staticSiteBucket: sharedInfraStack.staticSiteBucket,
-      apiGateway: backendStack.apiGateway,
+      apiUrl: backendStack.apiGateway.url,
+      apiDomainName: backendStack.apiDomainName,
+      apiStageName: backendStack.apiGateway.deploymentStage?.stageName,
       env,
     });
 

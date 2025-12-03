@@ -7,7 +7,9 @@ import createFrontend from '../Cloudfront/createFrontend';
 export interface FrontendStackProps extends cdk.NestedStackProps {
   stage: string;
   staticSiteBucket: s3.Bucket;
-  apiGateway: cdk.aws_apigateway.RestApi;
+  apiUrl: string;
+  apiDomainName?: string;
+  apiStageName?: string;
   env: any; // Environment configuration
 }
 
@@ -27,25 +29,10 @@ export class FrontendStack extends cdk.NestedStack {
 
     const region = this.region || cdk.Stack.of(this).region;
     
-    // Determine the API domain for CloudFront origin
-    const backendDomain = (props.env as any).backendDomainName || `backend.${props.env.hostedZoneName}`;
-    
-    // Only add custom domain if not using placeholder values
-    let apiDomain: cdk.aws_apigateway.IDomainName | undefined;
-    if (!props.env.hostedZoneName.includes('PLACEHOLDER')) {
-      apiDomain = props.apiGateway.addDomainName('ApiDomain', {
-        domainName: backendDomain,
-        certificate: cdk.aws_certificatemanager.Certificate.fromCertificateArn(
-          this,
-          'ApiCertificate',
-          (props.env as any).BackendAcmCert?.[region]?.id || props.env.AcmCert[region].id
-        ),
-      });
-    }
-
     // Create CloudFront distribution for API Gateway
     // Use custom domain if configured, otherwise use API Gateway URL directly
-    const apiOriginDomain = apiDomain?.domainName || props.apiGateway.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const apiOriginDomain = props.apiDomainName || props.apiUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const apiPath = props.apiDomainName && props.apiStageName ? `/${props.apiStageName}` : '';
     
     const apiDist = createCloudfront(
       this, 
@@ -53,7 +40,7 @@ export class FrontendStack extends cdk.NestedStack {
       region, 
       undefined, 
       apiOriginDomain, 
-      apiDomain ? `/${props.apiGateway.deploymentStage?.stageName ?? ''}` : ''
+      apiPath
     );
 
     // Create CloudFront distribution for frontend

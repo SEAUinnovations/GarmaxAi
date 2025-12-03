@@ -39,6 +39,7 @@ export interface BackendStackProps extends cdk.NestedStackProps {
  */
 export class BackendStack extends cdk.NestedStack {
   public readonly apiGateway: cdk.aws_apigateway.RestApi;
+  public readonly apiDomainName?: string;
   public readonly tryonEventBus: cdk.aws_events.EventBus;
   public readonly tryonQueueUrl: string;
   public readonly billingQueueUrl: string;
@@ -51,6 +52,22 @@ export class BackendStack extends cdk.NestedStack {
 
     // Create API Gateway (RestApi) and integrate with Lambda
     this.apiGateway = createApiGateway(this, pythonLambda, 'ModelMeApi');
+
+    // Add custom domain to API Gateway if configured
+    const region = this.region || cdk.Stack.of(this).region;
+    const backendDomain = (props.env as any).backendDomainName || `backend.${props.env.hostedZoneName}`;
+    
+    if (!props.env.hostedZoneName.includes('PLACEHOLDER')) {
+      const apiDomain = this.apiGateway.addDomainName('ApiDomain', {
+        domainName: backendDomain,
+        certificate: cdk.aws_certificatemanager.Certificate.fromCertificateArn(
+          this,
+          'ApiCertificate',
+          (props.env as any).BackendAcmCert?.[region]?.id || props.env.AcmCert[region].id
+        ),
+      });
+      this.apiDomainName = apiDomain.domainName;
+    }
 
     // Create ECS infrastructure for heavy SMPL processing (optional based on feature flag)
     const ecrRepository = createEcrRepository(this, props.stage);
