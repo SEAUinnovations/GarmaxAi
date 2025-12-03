@@ -146,6 +146,7 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
+      - install-dependencies
       - install-frontend-dependencies
       - run:
           name: Build frontend static files
@@ -274,6 +275,7 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
+      - install-dependencies
       - install-iac-dependencies
       - aws-cli/setup
       - run:
@@ -295,6 +297,7 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
+      - install-dependencies
       - install-iac-dependencies
       - aws-cli/setup
       - run:
@@ -316,6 +319,7 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
+      - install-dependencies
       - install-iac-dependencies
       - aws-cli/setup
       - run:
