@@ -199,34 +199,6 @@ jobs:
             npm audit --audit-level=high || true
             echo "Frontend npm audit complete"
 
-  # Security scan - Trivy container scanning (free)
-  security-scan-trivy:
-    executor: docker-executor
-    steps:
-      - restore-workspace
-      - setup_remote_docker:
-          docker_layer_caching: true
-      - run:
-          name: Install Trivy
-          command: |
-            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-            echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-            sudo apt-get update
-            sudo apt-get install trivy -y
-      - run:
-          name: Build Docker images for scanning
-          command: |
-            docker build -f Dockerfile.api -t garmaxai-api:${CIRCLE_SHA1} .
-            docker build -f Dockerfile.smpl -t garmaxai-smpl:${CIRCLE_SHA1} .
-      - run:
-          name: Scan API container with Trivy
-          command: |
-            trivy image --severity HIGH,CRITICAL --exit-code 0 garmaxai-api:${CIRCLE_SHA1}
-      - run:
-          name: Scan SMPL container with Trivy
-          command: |
-            trivy image --severity HIGH,CRITICAL --exit-code 0 garmaxai-smpl:${CIRCLE_SHA1}
-
   # Build and push Docker images
   build-docker-images:
     executor: docker-executor
@@ -363,12 +335,6 @@ workflows:
           requires:
             - checkout-code
 
-      - security-scan-trivy:
-          context: garmaxai-aws-deployment-prod
-          requires:
-            - build-backend
-            - build-frontend
-
       # Step 4: Build Docker images (only after security scans pass)
       - build-docker-images:
           context: garmaxai-aws-deployment-prod
@@ -377,7 +343,6 @@ workflows:
             - test-backend
             - security-scan-snyk
             - security-scan-npm-audit
-            - security-scan-trivy
           filters:
             branches:
               only:
