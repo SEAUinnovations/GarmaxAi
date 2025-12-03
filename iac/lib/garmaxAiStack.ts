@@ -7,14 +7,12 @@ import { SharedInfraStack } from './stacks/SharedInfraStack';
 import { BackendStack } from './stacks/BackendStack';
 import { FrontendStack } from './stacks/FrontendStack';
 import createBudgetMonitoring from './Monitoring/createBudgetMonitoring';
+import createVpc from './VPC/createVPC';
 
 export class GarmaxAiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
     
-    // Get environment configuration based on STAGE environment variable
-    const stage = process.env.STAGE || 'dev';
-    const env = getEnvironmentConfig(stage);
     // Get environment configuration based on STAGE environment variable
     const stage = process.env.STAGE || 'dev';
     const env = getEnvironmentConfig(stage);
@@ -30,7 +28,6 @@ export class GarmaxAiStack extends cdk.Stack {
     // Deploy nested stacks for shared infrastructure, backend, and frontend
     const sharedInfraStack = new SharedInfraStack(this, `SharedInfra-${stage}`, {
       stage,
-      vpc,
     });
 
     const backendStack = new BackendStack(this, `Backend-${stage}`, {
@@ -40,10 +37,7 @@ export class GarmaxAiStack extends cdk.Stack {
       guidanceBucket: sharedInfraStack.guidanceBucket,
       rendersBucket: sharedInfraStack.rendersBucket,
       smplAssetsBucket: sharedInfraStack.smplAssetsBucket,
-      logsBucket: sharedInfraStack.logsBucket,
       apiKeyParameters: sharedInfraStack.apiKeyParameters,
-      apiGateway: api,
-      pythonLambda,
       env,
     });
 
