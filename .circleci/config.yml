@@ -42,6 +42,8 @@ commands:
             - vite.config.ts
             - jest.config.js
             - drizzle.config.ts
+            - postcss.config.js
+            - vite-plugin-meta-images.ts
             - .circleci/
             - src/
             - client/src/
@@ -54,6 +56,7 @@ commands:
             - Dockerfile.api
             - Dockerfile.smpl
             - smpl-processor/
+            - attached_assets/
 
   save-build-artifacts:
     description: "Save build artifacts for deployment jobs"
