@@ -28,9 +28,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install PyTorch CPU version (Fargate doesn't support GPU)
 RUN pip install --no-cache-dir \
-    torch==${PYTORCH_VERSION}+cpu \
-    torchvision==${TORCHVISION_VERSION}+cpu \
-    -f https://download.pytorch.org/whl/torch_stable.html
+    torch==${PYTORCH_VERSION} \
+    torchvision==${TORCHVISION_VERSION} \
+    --index-url https://download.pytorch.org/whl/cpu
 
 # Install SMPL and computer vision dependencies
 RUN pip install --no-cache-dir \
@@ -43,9 +43,7 @@ RUN pip install --no-cache-dir \
     transforms3d==0.4.1 \
     trimesh==3.21.7 \
     pyrender==0.1.45 \
-    smplx==0.1.28 \
-    chumpy==0.70 \
-    opendr==0.78
+    smplx==0.1.28
 
 # Install AWS SDK and other utilities
 RUN pip install --no-cache-dir \
