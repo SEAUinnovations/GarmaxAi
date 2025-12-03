@@ -216,20 +216,20 @@ jobs:
           command: |
             # Build API container
             docker build -f Dockerfile.api -t garmaxai-api:${CIRCLE_SHA1} .
-            docker tag garmaxai-api:${CIRCLE_SHA1} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-api:${CIRCLE_SHA1}
-            docker tag garmaxai-api:${CIRCLE_SHA1} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-api:latest
+            docker tag garmaxai-api:${CIRCLE_SHA1} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxecr:api-${CIRCLE_SHA1}
+            docker tag garmaxai-api:${CIRCLE_SHA1} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxecr:api-latest
             
             # Build SMPL processor container
             docker build -f Dockerfile.smpl -t garmaxai-smpl:${CIRCLE_SHA1} .
-            docker tag garmaxai-smpl:${CIRCLE_SHA1} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-smpl:${CIRCLE_SHA1}
-            docker tag garmaxai-smpl:${CIRCLE_SHA1} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-smpl:latest
+            docker tag garmaxai-smpl:${CIRCLE_SHA1} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxecr:smpl-${CIRCLE_SHA1}
+            docker tag garmaxai-smpl:${CIRCLE_SHA1} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxecr:smpl-latest
       - run:
           name: Push Docker images to ECR
           command: |
-            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-api:${CIRCLE_SHA1}
-            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-api:latest
-            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-smpl:${CIRCLE_SHA1}
-            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxai-smpl:latest
+            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxecr:api-${CIRCLE_SHA1}
+            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxecr:api-latest
+            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxecr:smpl-${CIRCLE_SHA1}
+            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/garmaxecr:smpl-latest
 
   # Deploy to development
   deploy-dev:
