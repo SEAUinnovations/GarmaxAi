@@ -49,6 +49,7 @@ commands:
             - drizzle.config.ts
             - postcss.config.js
             - vite-plugin-meta-images.ts
+            - healthcheck.py
             - .circleci/
             - src/
             - client/src/
