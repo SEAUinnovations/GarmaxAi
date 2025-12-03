@@ -292,12 +292,12 @@ jobs:
       - run:
           name: Upload frontend to S3
           command: |
-            BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName-dev'].OutputValue" --output text)
+            BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-dev --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
             aws s3 sync dist/public s3://${BUCKET_NAME} --delete
       - run:
           name: Invalidate CloudFront cache
           command: |
-            DIST_ID=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId-dev'].OutputValue" --output text)
+            DIST_ID=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-dev --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId'].OutputValue" --output text)
             aws cloudfront create-invalidation --distribution-id ${DIST_ID} --paths "/*"
 
   # Deploy to QA
@@ -316,12 +316,12 @@ jobs:
       - run:
           name: Upload frontend to S3
           command: |
-            BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName-qa'].OutputValue" --output text)
+            BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-qa --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
             aws s3 sync dist/public s3://${BUCKET_NAME} --delete
       - run:
           name: Invalidate CloudFront cache
           command: |
-            DIST_ID=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId-qa'].OutputValue" --output text)
+            DIST_ID=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-qa --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId'].OutputValue" --output text)
             aws cloudfront create-invalidation --distribution-id ${DIST_ID} --paths "/*"
 
   # Deploy to production
@@ -340,12 +340,12 @@ jobs:
       - run:
           name: Upload frontend to S3
           command: |
-            BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName-prod'].OutputValue" --output text)
+            BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-prod --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
             aws s3 sync dist/public s3://${BUCKET_NAME} --delete
       - run:
           name: Invalidate CloudFront cache
           command: |
-            DIST_ID=$(aws cloudformation describe-stacks --stack-name GarmaxAiStack --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId-prod'].OutputValue" --output text)
+            DIST_ID=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-prod --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId'].OutputValue" --output text)
             aws cloudfront create-invalidation --distribution-id ${DIST_ID} --paths "/*"
 
 # Workflows

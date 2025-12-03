@@ -27,9 +27,9 @@
     "docs:serve": "swagger-ui-serve swagger.json",
     "cdk:synth": "cd iac && npx cdk synth",
     "cdk:diff": "cd iac && npx cdk diff",
-    "deploy:dev": "cd iac && STAGE=dev npx cdk deploy --require-approval never",
-    "deploy:qa": "cd iac && STAGE=qa npx cdk deploy --require-approval never",
-    "deploy:prod": "cd iac && STAGE=prod npx cdk deploy --require-approval never"
+    "deploy:dev": "cd iac && STAGE=dev npx cdk deploy --all --require-approval never",
+    "deploy:qa": "cd iac && STAGE=qa npx cdk deploy --all --require-approval never",
+    "deploy:prod": "cd iac && STAGE=prod npx cdk deploy --all --require-approval never"
   },
   "notes": "removed framer motion dependency",
   "dependencies": {
