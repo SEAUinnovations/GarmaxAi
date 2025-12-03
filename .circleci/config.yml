@@ -27,12 +27,41 @@ commands:
           at: ~/repo
 
   save-workspace:
-    description: "Save workspace for later jobs"
+    description: "Save workspace for later jobs - source code only, no node_modules"
     steps:
       - persist_to_workspace:
           root: ~/repo
           paths:
-            - .
+            - package.json
+            - package-lock.json
+            - client/package.json
+            - client/package-lock.json
+            - iac/package.json
+            - iac/package-lock.json
+            - tsconfig.json
+            - vite.config.ts
+            - jest.config.js
+            - drizzle.config.ts
+            - .circleci/
+            - src/
+            - client/src/
+            - iac/
+            - shared/
+            - tests/
+            - configs/
+            - scripts/
+            - parameters/
+            - Dockerfile.api
+            - Dockerfile.smpl
+            - smpl-processor/
+
+  save-build-artifacts:
+    description: "Save build artifacts for deployment jobs"
+    steps:
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - dist/
 
   install-dependencies:
     description: "Install npm dependencies with caching"
@@ -96,6 +125,7 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
+      - install-dependencies
       - run:
           name: Build backend API
           command: npm run build:backend
@@ -106,13 +136,14 @@ jobs:
               echo "Backend build failed - dist/index.js not found"
               exit 1
             fi
-      - save-workspace
+      - save-build-artifacts
 
   # Frontend build
   build-frontend:
     executor: node-executor
     steps:
       - restore-workspace
+      - install-frontend-dependencies
       - run:
           name: Build frontend static files
           command: npm run build:frontend
@@ -123,7 +154,7 @@ jobs:
               echo "Frontend build failed - dist/public not found"
               exit 1
             fi
-      - save-workspace
+      - save-build-artifacts
 
   # Backend testing with 90% coverage threshold
   test-backend:
@@ -168,6 +199,8 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
+      - install-dependencies
+      - install-frontend-dependencies
       - run:
           name: Authenticate Snyk
           command: npx snyk auth ${SNYK_TOKEN}
@@ -187,6 +220,8 @@ jobs:
     executor: node-executor
     steps:
       - restore-workspace
+      - install-dependencies
+      - install-frontend-dependencies
       - run:
           name: Run npm audit on backend dependencies
           command: |
@@ -235,8 +270,8 @@ jobs:
   deploy-dev:
     executor: node-executor
     steps:
-      - checkout
       - restore-workspace
+      - install-iac-dependencies
       - aws-cli/setup
       - run:
           name: Deploy CDK stack to development
@@ -256,8 +291,8 @@ jobs:
   deploy-qa:
     executor: node-executor
     steps:
-      - checkout
       - restore-workspace
+      - install-iac-dependencies
       - aws-cli/setup
       - run:
           name: Deploy CDK stack to QA
@@ -277,8 +312,8 @@ jobs:
   deploy-prod:
     executor: node-executor
     steps:
-      - checkout
       - restore-workspace
+      - install-iac-dependencies
       - aws-cli/setup
       - run:
           name: Deploy CDK stack to production
