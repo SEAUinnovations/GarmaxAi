@@ -36,6 +36,11 @@ commands:
             - package-lock.json
             - client/package.json
             - client/package-lock.json
+            - client/index.html
+            - client/tsconfig.json
+            - client/tsconfig.node.json
+            - client/vitest.config.ts
+            - client/public/
             - iac/package.json
             - iac/package-lock.json
             - tsconfig.json
