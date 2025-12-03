@@ -25,31 +25,31 @@ export default {
         "us-west-2": { id: "PLACEHOLDER_BACKEND_ACM_ARN" }
     },
     useCnameForBackend: false,
-    TaskDefName: "PLACEHOLDER_TASKDEF",
+    TaskDefName: "GarmaxAi-TaskDef-dev",
     ServiceName: {
-        "us-east-1": { id1: 'PLACEHOLDER_SERVICE' },
-        "us-west-2": { id1: 'PLACEHOLDER_SERVICE' }
+        "us-east-1": { id1: 'GarmaxAi-Service-dev' },
+        "us-west-2": { id1: 'GarmaxAi-Service-dev' }
     },
     clusterinfo: {
         "us-east-1": {
-            name: "PLACEHOLDER_CLUSTER",
+            name: "GarmaxAi-Cluster-dev",
             memory: 3072,
             minCapacity: 1,
             maxCapacity: 6,
             cpu: 512,
         },
         "us-west-2": {
-            name: "PLACEHOLDER_CLUSTER",
+            name: "GarmaxAi-Cluster-dev",
             memory: 3072,
             minCapacity: 1,
             maxCapacity: 6,
             cpu: 512,
         },
     },
-    ApiName: { "us-east-1": { id: "PLACEHOLDER_API" }, "us-west-2": { id: "PLACEHOLDER_API" } },
-    Fargateclustername: "PLACEHOLDER_FARGATE_CLUSTER",
-    FargateContainerName: "PLACEHOLDER_FARGATE_CONTAINER",
-    NetworkloadBalancerName: "PLACEHOLDER_NLB",
+    ApiName: { "us-east-1": { id: "GarmaxAi-Api-dev" }, "us-west-2": { id: "GarmaxAi-Api-dev" } },
+    Fargateclustername: "GarmaxAi-Fargate-dev",
+    FargateContainerName: "GarmaxAi-Container-dev",
+    NetworkloadBalancerName: "GarmaxAi-NLB-dev",
     awsAccountNumber: "920792187297",
     APP_ID: "PLACEHOLDER_LAMBDA_ARN",
     STAGE: "DEV",
