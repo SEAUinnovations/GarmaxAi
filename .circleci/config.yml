@@ -169,15 +169,15 @@ jobs:
     steps:
       - restore-workspace
       - run:
-          name: Install Snyk CLI
-          command: npm install -g snyk
+          name: Install dependencies
+          command: npm install
       - run:
           name: Authenticate Snyk
-          command: snyk auth ${SNYK_TOKEN}
+          command: npx snyk auth ${SNYK_TOKEN}
       - run:
           name: Run Snyk test
           command: |
-            snyk test --severity-threshold=high || true
+            npx snyk test --severity-threshold=high || true
             echo "Snyk scan complete"
       - run:
           name: Monitor project with Snyk
