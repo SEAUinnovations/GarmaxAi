@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import createLambdaLayer from './LayerLambda/createLambdaLayer';
 
 export default function createLambda(stack: cdk.Stack, id = 'ModelMeApiLambda') {
 
