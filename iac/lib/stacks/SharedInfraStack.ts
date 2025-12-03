@@ -8,6 +8,7 @@ import createRendersBucket from '../Storage/createRendersBucket';
 import createSmplAssetsBucket from '../Storage/createSmplAssetsBucket';
 import createStaticSiteBucket from '../Storage/createStaticSiteBucket';
 import { createApiKeyParameters, type ApiKeyParameters } from '../ParameterStore';
+import { getEnvironmentConfig } from '../../../parameters/config';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 
@@ -35,8 +36,11 @@ export class SharedInfraStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: SharedInfraStackProps) {
     super(scope, id, props);
 
+    // Get environment configuration
+    const env = getEnvironmentConfig(props.stage);
+
     // Create VPC with public and private subnets
-    this.vpc = createVpc(this, this.region || cdk.Stack.of(this).region);
+    this.vpc = createVpc(this, this.region || cdk.Stack.of(this).region, env);
 
     // Create centralized logs bucket first (other buckets will reference it)
     this.logsBucket = createLogsBucket(this, props.stage);

@@ -1,7 +1,6 @@
 
 import * as cdk from "aws-cdk-lib";
 import { Stack } from "aws-cdk-lib";
-import { env } from '../../../../parameters/config'
 
 
 
@@ -9,6 +8,7 @@ import { env } from '../../../../parameters/config'
 export default function createVpcEndpointSecurityGroup(
     stack: Stack,
     region: string,
+    env: any,
 ) {
     const stackName = stack.stackName;
     const stage = env.STAGE

@@ -17,7 +17,7 @@ export class GarmaxAiStack extends cdk.Stack {
     const stage = process.env.STAGE || 'dev';
     const env = getEnvironmentConfig(stage);
     
-    const vpc = createVpc(this, this.region || cdk.Stack.of(this).region);
+    const vpc = createVpc(this, this.region || cdk.Stack.of(this).region, env);
 
     // Create a Python Lambda
     const pythonLambda = createPythonLambda(this, 'ModelMeApiLambda');

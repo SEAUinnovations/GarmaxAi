@@ -1,11 +1,11 @@
 import * as cdk from 'aws-cdk-lib';
-import { env } from '../../../parameters/config'
 import { Stack } from 'aws-cdk-lib';
 
 
 export default function createVpc(
     stack: Stack,
     region: string,
+    env: any,
 ) {
 
     //Attach VPC
