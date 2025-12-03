@@ -235,6 +235,7 @@ jobs:
   deploy-dev:
     executor: node-executor
     steps:
+      - checkout
       - restore-workspace
       - aws-cli/setup
       - run:
@@ -255,6 +256,7 @@ jobs:
   deploy-qa:
     executor: node-executor
     steps:
+      - checkout
       - restore-workspace
       - aws-cli/setup
       - run:
@@ -275,6 +277,7 @@ jobs:
   deploy-prod:
     executor: node-executor
     steps:
+      - checkout
       - restore-workspace
       - aws-cli/setup
       - run:
