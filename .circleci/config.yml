@@ -395,6 +395,8 @@ workflows:
           context: garmaxai-aws-deployment-prod
           requires:
             - hold-prod-approval
+            - build-backend
+            - build-frontend
           filters:
             branches:
               only: main
