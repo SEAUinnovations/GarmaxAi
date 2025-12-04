@@ -80,15 +80,15 @@ export default function createLogsBucket(
         transitions: [
           {
             storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-            transitionAfter: cdk.Duration.days(7), // Faster transition due to volume
+            transitionAfter: cdk.Duration.days(30), // AWS minimum for STANDARD_IA
           },
           {
             storageClass: s3.StorageClass.GLACIER,
-            transitionAfter: cdk.Duration.days(30),
+            transitionAfter: cdk.Duration.days(60),
           },
           {
             storageClass: s3.StorageClass.DEEP_ARCHIVE,
-            transitionAfter: cdk.Duration.days(90),
+            transitionAfter: cdk.Duration.days(180),
           },
         ],
         expiration: cdk.Duration.days(1095), // 3 years for CDN logs
@@ -118,11 +118,11 @@ export default function createLogsBucket(
         transitions: [
           {
             storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-            transitionAfter: cdk.Duration.days(14),
+            transitionAfter: cdk.Duration.days(30), // AWS minimum for STANDARD_IA
           },
           {
             storageClass: s3.StorageClass.GLACIER,
-            transitionAfter: cdk.Duration.days(60),
+            transitionAfter: cdk.Duration.days(90),
           },
         ],
         expiration: cdk.Duration.days(730), // 2 years for application logs
