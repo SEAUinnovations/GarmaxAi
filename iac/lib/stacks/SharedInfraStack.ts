@@ -38,9 +38,12 @@ export class SharedInfraStack extends cdk.Stack {
 
     // Get environment configuration
     const env = getEnvironmentConfig(props.stage);
+    
+    // Get region from stack props
+    const region = props.env?.region || 'us-east-1';
 
     // Create VPC with public and private subnets
-    this.vpc = createVpc(this, this.region || cdk.Stack.of(this).region, env);
+    this.vpc = createVpc(this, region, env);
 
     // Create centralized logs bucket first (other buckets will reference it)
     this.logsBucket = createLogsBucket(this, props.stage);
