@@ -3,6 +3,8 @@ import { Construct } from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as rds from 'aws-cdk-lib/aws-rds';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import createPythonLambda from '../Lambda/createLambda';
 import createApiGateway from '../Api/createApiGateway';
@@ -17,6 +19,9 @@ import createEcrRepository from '../ECR/createEcrRepository';
 import createEcsCluster from '../ECS/createEcsCluster';
 import createBudgetMonitoring from '../Monitoring/createBudgetMonitoring';
 import { grantReadApiKeys, type ApiKeyParameters } from '../ParameterStore';
+import createRDS from '../RDS/createRDS';
+import createCognito from '../Cognito/createCognito';
+import createDBSecurityGroup from '../IAM/SecurityGroups/createDBSecurityGroup';
 
 export interface BackendStackProps extends cdk.StackProps {
   stage: string;
@@ -43,6 +48,11 @@ export class BackendStack extends cdk.Stack {
   public readonly tryonEventBus: cdk.aws_events.EventBus;
   public readonly tryonQueueUrl: string;
   public readonly billingQueueUrl: string;
+  public readonly rdsCluster: rds.DatabaseCluster;
+  public readonly userPool: cognito.UserPool;
+  public readonly userPoolClient: cognito.UserPoolClient;
+  public readonly identityPool: cognito.CfnIdentityPool;
+  public readonly cognitoDomain: cognito.UserPoolDomain;
 
   constructor(scope: Construct, id: string, props: BackendStackProps) {
     super(scope, id, props);
@@ -50,11 +60,24 @@ export class BackendStack extends cdk.Stack {
     // Get region from CDK stack env props (passed during stack creation)
     const region = props.env?.region || 'us-east-1';
 
+    // Create security groups for RDS
+    const [rdsSecurityGroup, dynamoSecurityGroup] = createDBSecurityGroup(this, region, props.vpc);
+
+    // Create Aurora MySQL database cluster
+    this.rdsCluster = createRDS(this, props.stage, rdsSecurityGroup, props.vpc);
+
+    // Create Cognito User Pool and Identity Pool
+    const [userPool, userPoolClient, identityPool, cognitoDomain] = createCognito(this, props.stage);
+    this.userPool = userPool as cognito.UserPool;
+    this.userPoolClient = userPoolClient as cognito.UserPoolClient;
+    this.identityPool = identityPool as cognito.CfnIdentityPool;
+    this.cognitoDomain = cognitoDomain as cognito.UserPoolDomain;
+
     // Create API Lambda
-    const pythonLambda = createPythonLambda(this, 'ModelMeApiLambda');
+    const pythonLambda = createPythonLambda(this, 'GarmaxLambda');
 
     // Create API Gateway (RestApi) and integrate with Lambda
-    this.apiGateway = createApiGateway(this, pythonLambda, 'ModelMeApi');
+    this.apiGateway = createApiGateway(this, pythonLambda, 'GarmaxApi');
 
     // Add custom domain to API Gateway if configured
     const backendDomain = (props.envConfig as any).backendDomainName || `backend.${props.envConfig.hostedZoneName}`;
@@ -144,6 +167,20 @@ export class BackendStack extends cdk.Stack {
       resources: [this.tryonEventBus.eventBusArn],
     }));
 
+    // Grant RDS access to Lambda functions
+    if (this.rdsCluster.secret) {
+      this.rdsCluster.secret.grantRead(pythonLambda);
+      this.rdsCluster.secret.grantRead(tryonProcessor);
+      this.rdsCluster.secret.grantRead(aiRenderProcessor);
+      this.rdsCluster.secret.grantRead(billingProcessor);
+    }
+
+    // Allow Lambda functions to connect to RDS
+    this.rdsCluster.connections.allowDefaultPortFrom(pythonLambda);
+    this.rdsCluster.connections.allowDefaultPortFrom(tryonProcessor);
+    this.rdsCluster.connections.allowDefaultPortFrom(aiRenderProcessor);
+    this.rdsCluster.connections.allowDefaultPortFrom(billingProcessor);
+
     // Grant Parameter Store read access to all Lambda functions
     grantReadApiKeys(props.apiKeyParameters, tryonProcessor);
     grantReadApiKeys(props.apiKeyParameters, aiRenderProcessor);
@@ -202,6 +239,39 @@ export class BackendStack extends cdk.Stack {
         exportName: `Backend-EcsCluster-${props.stage}`,
       });
     }
+
+    // RDS Outputs
+    new cdk.CfnOutput(this, `RdsClusterEndpoint`, {
+      value: this.rdsCluster.clusterEndpoint.hostname,
+      exportName: `Backend-RdsEndpoint-${props.stage}`,
+    });
+
+    new cdk.CfnOutput(this, `RdsSecretArn`, {
+      value: this.rdsCluster.secret?.secretArn || 'N/A',
+      exportName: `Backend-RdsSecretArn-${props.stage}`,
+    });
+
+    // Cognito Outputs
+    new cdk.CfnOutput(this, `UserPoolId`, {
+      value: this.userPool.userPoolId,
+      exportName: `Backend-UserPoolId-${props.stage}`,
+    });
+
+    new cdk.CfnOutput(this, `UserPoolClientId`, {
+      value: this.userPoolClient.userPoolClientId,
+      exportName: `Backend-UserPoolClientId-${props.stage}`,
+    });
+
+    new cdk.CfnOutput(this, `IdentityPoolId`, {
+      value: this.identityPool.ref,
+      exportName: `Backend-IdentityPoolId-${props.stage}`,
+    });
+
+    new cdk.CfnOutput(this, `CognitoDomainUrl`, {
+      value: this.cognitoDomain.baseUrl(),
+      exportName: `Backend-CognitoDomainUrl-${props.stage}`,
+      description: 'Cognito Hosted UI domain URL for Google SSO',
+    });
   }
 
   private configureEnvironmentVariables(
@@ -217,6 +287,11 @@ export class BackendStack extends cdk.Stack {
     pythonLambda.addEnvironment('SQS_QUEUE_URL', this.tryonQueueUrl);
     pythonLambda.addEnvironment('SQS_BILLING_QUEUE_URL', this.billingQueueUrl);
     pythonLambda.addEnvironment('UPLOADS_BUCKET_NAME', props.uploadsBucket.bucketName);
+    pythonLambda.addEnvironment('DATABASE_SECRET_ARN', this.rdsCluster.secret?.secretArn || '');
+    pythonLambda.addEnvironment('RDS_ENDPOINT', this.rdsCluster.clusterEndpoint.hostname);
+    pythonLambda.addEnvironment('COGNITO_USER_POOL_ID', this.userPool.userPoolId);
+    pythonLambda.addEnvironment('COGNITO_CLIENT_ID', this.userPoolClient.userPoolClientId);
+    pythonLambda.addEnvironment('COGNITO_IDENTITY_POOL_ID', this.identityPool.ref);
     
     // Try-On Processor environment
     tryonProcessor.addEnvironment('UPLOADS_BUCKET_NAME', props.uploadsBucket.bucketName);

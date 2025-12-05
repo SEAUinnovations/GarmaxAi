@@ -14,6 +14,8 @@ import Register from "./pages/Register";
 import VirtualTryonStudio from "./pages/VirtualTryonStudio";
 import Pricing from "./pages/Pricing";
 import Account from "./pages/Account";
+import AuthCallback from "./pages/AuthCallback";
+import AuthLogout from "./pages/AuthLogout";
 
 function Router() {
   return (
@@ -21,6 +23,10 @@ function Router() {
       {/* Public routes */}
       <Route path="/" component={Home}/>
       <Route path="/pricing" component={Pricing}/>
+      
+      {/* OAuth callback routes */}
+      <Route path="/auth/callback" component={AuthCallback}/>
+      <Route path="/auth/logout" component={AuthLogout}/>
       
       {/* Auth routes - redirect if already logged in */}
       <Route path="/login">
