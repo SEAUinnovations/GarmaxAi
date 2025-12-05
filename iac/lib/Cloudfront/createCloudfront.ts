@@ -66,7 +66,7 @@ if (!env.hostedZoneName.includes('PLACEHOLDER')) {
       },
       enabled: true,
       enableIpv6: true,
-      webAclId: (env as any).wafArn || WAF?.attrArn,
+      webAclId: ((env as any).wafArn && !(env as any).wafArn.includes('PLACEHOLDER')) ? (env as any).wafArn : (WAF?.attrArn || undefined),
       domainNames: distributionDomain ? [distributionDomain] : undefined,
       certificate: certificate,
     });

@@ -91,7 +91,7 @@ export default function createFrontend(
     defaultRootObject: 'index.html',
     certificate,
     domainNames,
-    webAclId: wafArn,
+    webAclId: wafArn && !wafArn.includes('PLACEHOLDER') ? wafArn : undefined,
     enableIpv6: true,
     enableLogging: false,
     errorResponses: [
