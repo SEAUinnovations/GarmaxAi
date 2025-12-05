@@ -22,10 +22,16 @@ import { grantReadApiKeys, type ApiKeyParameters } from '../ParameterStore';
 import createRDS from '../RDS/createRDS';
 import createCognito from '../Cognito/createCognito';
 import createDBSecurityGroup from '../IAM/SecurityGroups/createDBSecurityGroup';
+import createLambdaProcessorSG from '../IAM/SecurityGroups/createLambdaProcessorSG';
+import type { VpcEndpointsConfig } from '../VPC/createVpcEndpoints';
 
 export interface BackendStackProps extends cdk.StackProps {
   stage: string;
   vpc: ec2.IVpc;
+  vpcEndpoints: VpcEndpointsConfig;
+  elastiCacheEndpoint: string;
+  elastiCachePort: string;
+  elastiCacheSecurityGroup: ec2.ISecurityGroup;
   uploadsBucket: s3.Bucket;
   guidanceBucket: s3.Bucket;
   rendersBucket: s3.Bucket;
@@ -63,6 +69,15 @@ export class BackendStack extends cdk.Stack {
     // Create security groups for RDS
     const [rdsSecurityGroup, dynamoSecurityGroup] = createDBSecurityGroup(this, region, props.vpc);
 
+    // Create Lambda processor security group with access to RDS, ElastiCache, and VPC endpoints
+    const lambdaProcessorSG = createLambdaProcessorSG(
+      this,
+      props.vpc,
+      rdsSecurityGroup,
+      props.elastiCacheSecurityGroup,
+      props.vpcEndpoints.endpointSecurityGroup
+    );
+
     // Create Aurora MySQL database cluster
     this.rdsCluster = createRDS(this, props.stage, rdsSecurityGroup, props.vpc);
 
@@ -73,8 +88,14 @@ export class BackendStack extends cdk.Stack {
     this.identityPool = identityPool as cognito.CfnIdentityPool;
     this.cognitoDomain = cognitoDomain as cognito.UserPoolDomain;
 
-    // Create API Lambda
-    const pythonLambda = createPythonLambda(this, 'GarmaxLambda');
+    // Create API Lambda with VPC configuration
+    const pythonLambda = createPythonLambda(this, 'GarmaxLambda', {
+      vpc: props.vpc,
+      securityGroups: [lambdaProcessorSG],
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      redisEndpoint: props.elastiCacheEndpoint,
+      redisPort: props.elastiCachePort,
+    });
 
     // Create API Gateway (RestApi) and integrate with Lambda
     this.apiGateway = createApiGateway(this, pythonLambda, 'GarmaxApi');
@@ -124,6 +145,11 @@ export class BackendStack extends cdk.Stack {
       guidanceBucket: props.guidanceBucket,
       rendersBucket: props.rendersBucket,
       smplAssetsBucket: props.envConfig.ENABLE_ECS_HEAVY_JOBS ? undefined : props.smplAssetsBucket,
+      vpc: props.vpc,
+      securityGroups: [lambdaProcessorSG],
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      redisEndpoint: props.elastiCacheEndpoint,
+      redisPort: props.elastiCachePort,
     });
     
     tryonProcessor.addEventSource(new SqsEventSource(tryonQueue, {
@@ -135,9 +161,20 @@ export class BackendStack extends cdk.Stack {
       guidanceBucket: props.guidanceBucket,
       rendersBucket: props.rendersBucket,
       allowBedrockFailover: props.envConfig.ALLOW_BEDROCK_FAILOVER,
+      vpc: props.vpc,
+      securityGroups: [lambdaProcessorSG],
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      redisEndpoint: props.elastiCacheEndpoint,
+      redisPort: props.elastiCachePort,
     });
     
-    const billingProcessor = createBillingProcessor(this, props.stage);
+    const billingProcessor = createBillingProcessor(this, props.stage, {
+      vpc: props.vpc,
+      securityGroups: [lambdaProcessorSG],
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      redisEndpoint: props.elastiCacheEndpoint,
+      redisPort: props.elastiCachePort,
+    });
     billingProcessor.addEventSource(new SqsEventSource(billingQueue, {
       batchSize: 5,
       reportBatchItemFailures: true,
@@ -159,6 +196,7 @@ export class BackendStack extends cdk.Stack {
       stage: props.stage,
       dailyBudgetUsd: props.envConfig.DAILY_BUDGET_USD || 50,
       alertEmail: props.envConfig.ALERT_EMAIL || 'alerts@garmaxai.com',
+      vpcId: props.vpc.vpcId,
     });
 
     // Configure IAM permissions

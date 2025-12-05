@@ -137,6 +137,54 @@ export class MemStorage implements IStorage {
     return true;
   }
 
+  // OAuth methods
+  async getUserByCognitoId(cognitoId: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.username.startsWith(cognitoId)
+    );
+  }
+
+  async createUserFromOAuth(data: {
+    cognitoId: string;
+    email: string;
+    emailVerified: boolean;
+    name?: string;
+    profilePicture?: string;
+  }): Promise<User> {
+    const userId = randomUUID();
+    const trialExpiresAt = new Date();
+    trialExpiresAt.setDate(trialExpiresAt.getDate() + 14); // 14-day trial
+
+    const newUser: User = {
+      id: userId,
+      // Store cognitoId in username for now (until schema is updated)
+      username: data.cognitoId.substring(0, 255),
+      email: data.email,
+      password: '', // No password for OAuth users
+      emailVerified: data.emailVerified,
+      trialExpiresAt,
+      trialStatus: 'active',
+      subscriptionTier: 'free',
+      credits: 100,
+      creditsRemaining: 100,
+      heightFeet: null,
+      heightInches: null,
+      ageRange: null,
+      gender: null,
+      bodyType: null,
+      ethnicity: null,
+      profileCompleted: false,
+      profileCompletedAt: null,
+      stylePreferences: null,
+      measurementSystem: 'imperial',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    this.users.set(userId, newUser);
+    return newUser;
+  }
+
   async createTempUser(data: {
     email: string;
     verificationCode: string;

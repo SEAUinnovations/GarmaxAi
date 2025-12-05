@@ -122,7 +122,7 @@ async function findOrCreateUserFromCognito(cognitoUser: {
   // Example (adjust to your storage implementation):
   const { storage } = await import('../storage');
   
-  let user = await storage.getUserByCognitoId(cognitoUser.cognitoId);
+  let user = await storage.getUserByEmail(cognitoUser.email);
   
   if (!user) {
     // Create new user

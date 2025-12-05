@@ -33,6 +33,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { env } from '../../../parameters/config';
 
@@ -40,6 +41,11 @@ interface CreateAiRenderProcessorProps {
   guidanceBucket: s3.Bucket;
   rendersBucket: s3.Bucket;
   allowBedrockFailover?: boolean;
+  vpc?: ec2.IVpc;
+  securityGroups?: ec2.ISecurityGroup[];
+  vpcSubnets?: ec2.SubnetSelection;
+  redisEndpoint?: string;
+  redisPort?: string;
 }
 
 export default function createAiRenderProcessor(
@@ -47,8 +53,26 @@ export default function createAiRenderProcessor(
   stage: string,
   props: CreateAiRenderProcessorProps
 ) {
-  const { guidanceBucket, rendersBucket, allowBedrockFailover = false } = props;
+  const { guidanceBucket, rendersBucket, allowBedrockFailover = false, vpc, securityGroups, vpcSubnets, redisEndpoint, redisPort } = props;
   
+  // Lambda execution role
+  const aiRenderProcessorRole = new iam.Role(stack, `AiRenderProcessorRole-${stage}`, {
+    assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+    description: 'Execution role for AI Render Processor Lambda',
+  });
+
+  // Add basic Lambda execution policy
+  aiRenderProcessorRole.addManagedPolicy(
+    iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
+  );
+
+  // Add VPC execution policy if VPC is configured
+  if (vpc) {
+    aiRenderProcessorRole.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole')
+    );
+  }
+
   // Lambda function for AI rendering
   const aiRenderProcessor = new NodejsFunction(stack, `AiRenderProcessor-${stage}`, {
     functionName: `GarmaxAi-AiRenderProcessor-${stage}`,
@@ -59,6 +83,12 @@ export default function createAiRenderProcessor(
     // Resource allocation for AI API calls and image processing
     timeout: cdk.Duration.minutes(10), // Allow time for external API calls
     memorySize: 1024, // Sufficient for image processing and API responses
+    role: aiRenderProcessorRole,
+    
+    // VPC configuration
+    vpc,
+    securityGroups,
+    vpcSubnets,
     
     // Environment variables for bucket access and provider configuration
     environment: {
@@ -80,6 +110,10 @@ export default function createAiRenderProcessor(
       
       // AWS stage for service configuration
       STAGE: stage,
+      
+      // Redis configuration
+      ...(redisEndpoint && { REDIS_ENDPOINT: redisEndpoint }),
+      ...(redisPort && { REDIS_PORT: redisPort }),
     },
     
     // Bundle configuration for Node.js dependencies
@@ -97,22 +131,22 @@ export default function createAiRenderProcessor(
   // IAM permissions for S3 bucket access
   
   // Read access to guidance assets (depth maps, normal maps, prompts)
-  guidanceBucket.grantRead(aiRenderProcessor, 'depth/*');
-  guidanceBucket.grantRead(aiRenderProcessor, 'normals/*');
-  guidanceBucket.grantRead(aiRenderProcessor, 'poses/*');
-  guidanceBucket.grantRead(aiRenderProcessor, 'prompts/*');
-  guidanceBucket.grantRead(aiRenderProcessor, 'controlnets/*');
+  guidanceBucket.grantRead(aiRenderProcessorRole, 'depth/*');*');
+  guidanceBucket.grantRead(aiRenderProcessorRole, 'normals/*');
+  guidanceBucket.grantRead(aiRenderProcessorRole, 'poses/*');
+  guidanceBucket.grantRead(aiRenderProcessorRole, 'prompts/*');
+  guidanceBucket.grantRead(aiRenderProcessorRole, 'controlnets/*');
   
   // Read access to preview renders from try-on processor
-  rendersBucket.grantRead(aiRenderProcessor, 'previews/*');
+  rendersBucket.grantRead(aiRenderProcessorRole, 'previews/*');
   
   // Write access to final render outputs
-  rendersBucket.grantWrite(aiRenderProcessor, 'final/*');
-  rendersBucket.grantWrite(aiRenderProcessor, 'thumbnails/*');
-  rendersBucket.grantWrite(aiRenderProcessor, 'processing/*'); // Temp processing files
+  rendersBucket.grantWrite(aiRenderProcessorRole, 'final/*');
+  rendersBucket.grantWrite(aiRenderProcessorRole, 'thumbnails/*');
+  rendersBucket.grantWrite(aiRenderProcessorRole, 'processing/*'); // Temp processing files
   
   // EventBridge permissions for publishing status updates
-  aiRenderProcessor.addToRolePolicy(
+  aiRenderProcessorRole.addToPolicy(
     new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['events:PutEvents'],
@@ -121,7 +155,7 @@ export default function createAiRenderProcessor(
   );
   
   // Secrets Manager access for Replicate API token
-  aiRenderProcessor.addToRolePolicy(
+  aiRenderProcessorRole.addToPolicy(
     new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['secretsmanager:GetSecretValue'],
@@ -130,7 +164,7 @@ export default function createAiRenderProcessor(
   );
   
   // CloudWatch custom metrics for budget tracking
-  aiRenderProcessor.addToRolePolicy(
+  aiRenderProcessorRole.addToPolicy(
     new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
@@ -147,7 +181,7 @@ export default function createAiRenderProcessor(
   
   // DynamoDB/SSM permissions for circuit breaker and quota tracking
   // Also includes Gemini service account credentials and budget tracking
-  aiRenderProcessor.addToRolePolicy(
+  aiRenderProcessorRole.addToPolicy(
     new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
@@ -175,7 +209,7 @@ export default function createAiRenderProcessor(
   
   // Conditional Bedrock permissions (only if failover enabled)
   if (allowBedrockFailover) {
-    aiRenderProcessor.addToRolePolicy(
+    aiRenderProcessorRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: [
@@ -190,7 +224,7 @@ export default function createAiRenderProcessor(
     );
     
     // Bedrock API token from Secrets Manager (if different from Replicate)
-    aiRenderProcessor.addToRolePolicy(
+    aiRenderProcessorRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue'],

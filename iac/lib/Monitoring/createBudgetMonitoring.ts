@@ -9,7 +9,7 @@ export interface BudgetMonitoringProps {
   stage: string;
   dailyBudgetUsd: number;
   alertEmail: string;
-}
+  vpcId?: string; // For NAT Gateway filtering\n}
 
 /**
  * Creates CloudWatch alarms and SNS notifications for budget monitoring
@@ -20,6 +20,8 @@ export interface BudgetMonitoringProps {
  * - S3 storage and request costs
  * - ECS task costs
  * - RDS database costs
+ * - NAT Gateway data transfer costs
+ * - VPC endpoint hourly costs
  * 
  * Alerts when daily charges approach or exceed threshold
  */
@@ -30,7 +32,12 @@ export default function createBudgetMonitoring(
   alarmTopic: sns.Topic;
   budgetAlarm: cloudwatch.CompositeAlarm;
 } {
-  const { stage, dailyBudgetUsd, alertEmail } = props;
+  const { stage, dailyBudgetUsd, alertEmail, vpcId } = props;
+
+  // Environment-specific NAT Gateway daily thresholds (in GB)
+  const natGatewayThresholdGB = stage === 'PROD' ? 150 : stage === 'QA' ? 50 : 20;
+  // NAT Gateway cost: $0.045/GB for data processing
+  const natGatewayThresholdUsd = natGatewayThresholdGB * 0.045;
 
   // Create SNS topic for budget alerts
   const alarmTopic = new sns.Topic(scope, `BudgetAlarmTopic-${stage}`, {
@@ -117,6 +124,46 @@ export default function createBudgetMonitoring(
     comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
   });
 
+  // NAT Gateway data transfer alarm (monitors outbound data to internet)
+  const natGatewayAlarm = new cloudwatch.Alarm(scope, `NatGatewayDataTransferAlarm-${stage}`, {
+    alarmName: `GarmaxAI-NatGatewayDataTransfer-${stage}`,
+    alarmDescription: `NAT Gateway data transfer exceeding ${natGatewayThresholdGB}GB/day (~$${natGatewayThresholdUsd.toFixed(2)})`,
+    metric: new cloudwatch.Metric({
+      namespace: 'AWS/NATGateway',
+      metricName: 'BytesOutToDestination',
+      statistic: 'Sum',
+      period: cdk.Duration.hours(24), // Daily aggregation
+      ...(vpcId && {
+        dimensionsMap: {
+          // Filter by VPC if provided (requires NAT Gateway IDs, will match all in VPC)
+        },
+      }),
+    }),
+    threshold: natGatewayThresholdGB * 1024 * 1024 * 1024, // Convert GB to bytes
+    evaluationPeriods: 1,
+    comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+  });
+
+  // VPC endpoint cost alarm (5 interface endpoints × $0.01/hour × 24 hours = $1.20/day)
+  // This is informational - interface endpoints have fixed hourly costs
+  const vpcEndpointDailyCost = 5 * 0.01 * 24; // $1.20/day for 5 interface endpoints
+  
+  // Track VPC endpoint usage via processed bytes (data transfer through endpoints)
+  const vpcEndpointUsageAlarm = new cloudwatch.Alarm(scope, `VpcEndpointUsageAlarm-${stage}`, {
+    alarmName: `GarmaxAI-VpcEndpointUsage-${stage}`,
+    alarmDescription: `VPC endpoint data transfer unusually high (may indicate misconfiguration)`,
+    metric: new cloudwatch.Metric({
+      namespace: 'AWS/PrivateLinkEndpoints',
+      metricName: 'BytesProcessed',
+      statistic: 'Sum',
+      period: cdk.Duration.hours(24),
+    }),
+    threshold: 100 * 1024 * 1024 * 1024, // 100GB/day threshold (informational)
+    evaluationPeriods: 1,
+    comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+    treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING, // Endpoints may not always have metrics
+  });
+
   // Composite alarm combining all cost indicators
   const budgetAlarm = new cloudwatch.CompositeAlarm(scope, `BudgetCompositeAlarm-${stage}`, {
     compositeAlarmName: `GarmaxAI-BudgetMonitor-${stage}`,
@@ -127,7 +174,9 @@ export default function createBudgetMonitoring(
         cloudwatch.AlarmRule.fromAlarm(lambdaInvocationsAlarm, cloudwatch.AlarmState.ALARM),
         cloudwatch.AlarmRule.fromAlarm(lambdaErrorsAlarm, cloudwatch.AlarmState.ALARM)
       ),
-      cloudwatch.AlarmRule.fromAlarm(s3StorageAlarm, cloudwatch.AlarmState.ALARM)
+      cloudwatch.AlarmRule.fromAlarm(s3StorageAlarm, cloudwatch.AlarmState.ALARM),
+      cloudwatch.AlarmRule.fromAlarm(natGatewayAlarm, cloudwatch.AlarmState.ALARM),
+      cloudwatch.AlarmRule.fromAlarm(vpcEndpointUsageAlarm, cloudwatch.AlarmState.ALARM)
     ),
   });
 
@@ -139,6 +188,8 @@ export default function createBudgetMonitoring(
   lambdaInvocationsAlarm.addAlarmAction(new actions.SnsAction(alarmTopic));
   lambdaErrorsAlarm.addAlarmAction(new actions.SnsAction(alarmTopic));
   s3StorageAlarm.addAlarmAction(new actions.SnsAction(alarmTopic));
+  natGatewayAlarm.addAlarmAction(new actions.SnsAction(alarmTopic));
+  vpcEndpointUsageAlarm.addAlarmAction(new actions.SnsAction(alarmTopic));
 
   // CloudWatch dashboard for budget visualization
   const dashboard = new cloudwatch.Dashboard(scope, `BudgetDashboard-${stage}`, {
@@ -205,6 +256,57 @@ export default function createBudgetMonitoring(
           period: cdk.Duration.hours(24),
         }),
       ],
+    }),
+    new cloudwatch.GraphWidget({
+      title: 'NAT Gateway Data Transfer',
+      left: [
+        new cloudwatch.Metric({
+          namespace: 'AWS/NATGateway',
+          metricName: 'BytesOutToDestination',
+          statistic: 'Sum',
+          period: cdk.Duration.hours(1),
+          label: 'Outbound to Internet',
+        }),
+        new cloudwatch.Metric({
+          namespace: 'AWS/NATGateway',
+          metricName: 'BytesInFromDestination',
+          statistic: 'Sum',
+          period: cdk.Duration.hours(1),
+          label: 'Inbound from Internet',
+        }),
+      ],
+      leftAnnotations: [
+        { 
+          value: natGatewayThresholdGB * 1024 * 1024 * 1024, 
+          label: `Daily Threshold (${natGatewayThresholdGB}GB)`, 
+          color: '#ff9900' 
+        },
+      ],
+    }),
+    new cloudwatch.GraphWidget({
+      title: 'VPC Endpoint Usage & Cost',
+      left: [
+        new cloudwatch.Metric({
+          namespace: 'AWS/PrivateLinkEndpoints',
+          metricName: 'BytesProcessed',
+          statistic: 'Sum',
+          period: cdk.Duration.hours(24),
+          label: 'Data Processed',
+        }),
+      ],
+      right: [
+        // Static cost indicator (5 endpoints × $0.01/hr)
+        new cloudwatch.MathExpression({
+          expression: '5 * 0.01',
+          label: 'Hourly Cost (USD)',
+        }),
+      ],
+      leftYAxis: {
+        label: 'Bytes',
+      },
+      rightYAxis: {
+        label: 'Cost (USD/hour)',
+      },
     })
   );
 

@@ -1,12 +1,15 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import createVpc from '../VPC/createVPC';
+import createVpcEndpoints, { type VpcEndpointsConfig } from '../VPC/createVpcEndpoints';
 import createLogsBucket from '../Storage/createLogsBucket';
 import createUploadsBucket from '../Storage/createUploadsBucket';
 import createGuidanceBucket from '../Storage/createGuidanceBucket';
 import createRendersBucket from '../Storage/createRendersBucket';
 import createSmplAssetsBucket from '../Storage/createSmplAssetsBucket';
 import createStaticSiteBucket from '../Storage/createStaticSiteBucket';
+import createElastiCacheSecurityGroup from '../IAM/SecurityGroups/createElastiCacheSecurityGroup';
+import { createElastiCache, type ElastiCacheConfig } from '../ElastiCache/createElastiCache';
 import { createApiKeyParameters, type ApiKeyParameters } from '../ParameterStore';
 import { getEnvironmentConfig } from '../../../parameters/config';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
@@ -19,12 +22,17 @@ export interface SharedInfraStackProps extends cdk.StackProps {
 /**
  * SharedInfraStack - Manages shared infrastructure resources
  * - VPC with public and private subnets
+ * - VPC endpoints for cost optimization
+ * - ElastiCache (Redis) cluster for session caching
  * - S3 buckets (logs, uploads, guidance, renders, SMPL assets, static site)
  * 
  * These resources are shared across backend and frontend stacks
  */
 export class SharedInfraStack extends cdk.Stack {
   public readonly vpc: ec2.IVpc;
+  public readonly vpcEndpoints: VpcEndpointsConfig;
+  public readonly elastiCacheConfig: ElastiCacheConfig;
+  public readonly elastiCacheSecurityGroup: ec2.ISecurityGroup;
   public readonly logsBucket: s3.Bucket;
   public readonly uploadsBucket: s3.Bucket;
   public readonly guidanceBucket: s3.Bucket;
@@ -44,6 +52,18 @@ export class SharedInfraStack extends cdk.Stack {
 
     // Create VPC with public and private subnets
     this.vpc = createVpc(this, region, env);
+
+    // Create VPC endpoints for cost optimization (reduce NAT Gateway charges)
+    this.vpcEndpoints = createVpcEndpoints(this, props.stage, this.vpc);
+
+    // Create ElastiCache security group and cluster
+    this.elastiCacheSecurityGroup = createElastiCacheSecurityGroup(this, this.vpc);
+    this.elastiCacheConfig = createElastiCache(
+      this,
+      props.stage,
+      this.vpc,
+      this.elastiCacheSecurityGroup
+    );
 
     // Create centralized logs bucket first (other buckets will reference it)
     this.logsBucket = createLogsBucket(this, props.stage);
@@ -92,6 +112,25 @@ export class SharedInfraStack extends cdk.Stack {
     new cdk.CfnOutput(this, `VpcId`, {
       value: this.vpc.vpcId,
       exportName: `SharedInfra-VpcId-${props.stage}`,
+    });
+
+    // ElastiCache outputs
+    new cdk.CfnOutput(this, `ElastiCacheEndpoint`, {
+      value: this.elastiCacheConfig.endpoint,
+      exportName: `SharedInfra-ElastiCacheEndpoint-${props.stage}`,
+      description: `ElastiCache Redis endpoint for ${props.stage}`,
+    });
+
+    new cdk.CfnOutput(this, `ElastiCachePort`, {
+      value: this.elastiCacheConfig.port,
+      exportName: `SharedInfra-ElastiCachePort-${props.stage}`,
+      description: `ElastiCache Redis port for ${props.stage}`,
+    });
+
+    new cdk.CfnOutput(this, `ElastiCacheSecurityGroupId`, {
+      value: this.elastiCacheSecurityGroup.securityGroupId,
+      exportName: `SharedInfra-ElastiCacheSG-${props.stage}`,
+      description: `ElastiCache security group ID for ${props.stage}`,
     });
   }
 }

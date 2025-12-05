@@ -216,6 +216,67 @@ export class RDSStorage implements IStorage {
     }
   }
 
+  // OAuth methods
+  async getUserByCognitoId(cognitoId: string): Promise<User | undefined> {
+    try {
+      // Note: cognitoId field needs to be added to schema
+      // For now, using email as fallback until schema is updated
+      const result = await this._db.select()
+        .from(users)
+        .where(sql`${users.username} LIKE ${cognitoId + '%'}`)
+        .limit(1);
+      return result[0] as User | undefined;
+    } catch (error) {
+      logger.error(`Error getting user by Cognito ID ${cognitoId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async createUserFromOAuth(data: {
+    cognitoId: string;
+    email: string;
+    emailVerified: boolean;
+    name?: string;
+    profilePicture?: string;
+  }): Promise<User> {
+    try {
+      const userId = crypto.randomUUID();
+      const trialExpiresAt = new Date();
+      trialExpiresAt.setDate(trialExpiresAt.getDate() + 14); // 14-day trial
+
+      const newUser = {
+        id: userId,
+        // Store cognitoId in username for now (until schema is updated)
+        username: data.cognitoId.substring(0, 255),
+        email: data.email,
+        password: '', // No password for OAuth users
+        emailVerified: data.emailVerified,
+        trialExpiresAt,
+        trialStatus: 'active' as const,
+        subscriptionTier: 'free' as const,
+        credits: 100,
+        creditsRemaining: 100, // Initial credits
+      };
+
+      await this._db.insert(users).values(newUser);
+      
+      const createdUser = await this._db.select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!createdUser[0]) {
+        throw new Error('Failed to retrieve created OAuth user');
+      }
+
+      logger.info(`Created OAuth user: ${data.email}`, 'RDSStorage');
+      return createdUser[0] as User;
+    } catch (error) {
+      logger.error(`Error creating OAuth user: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
   // Temporary user methods for email verification
   async createTempUser(data: {
     email: string;

@@ -37,6 +37,7 @@
     "@aws-sdk/client-eventbridge": "^3.940.0",
     "@aws-sdk/client-rekognition": "^3.940.0",
     "@aws-sdk/client-s3": "^3.940.0",
+    "@aws-sdk/client-secrets-manager": "^3.943.0",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@neondatabase/serverless": "^0.10.4",
@@ -124,7 +125,6 @@
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "^3.943.0",
     "@aws-sdk/client-ssm": "^3.943.0",
-    "snyk": "^1.1294.1",
     "@replit/vite-plugin-cartographer": "^0.4.4",
     "@replit/vite-plugin-dev-banner": "^0.1.1",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
@@ -152,6 +152,7 @@
     "jest": "^29.7.0",
     "jest-environment-node": "^29.7.0",
     "postcss": "^8.5.6",
+    "snyk": "^1.1294.1",
     "supertest": "^6.3.4",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",

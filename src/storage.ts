@@ -22,6 +22,16 @@ export interface IStorage {
   getUserGenerations(userId: string): Promise<Generation[]>;
   cancelGeneration(id: string): Promise<boolean>;
   
+  // OAuth methods
+  getUserByCognitoId(cognitoId: string): Promise<User | undefined>;
+  createUserFromOAuth(data: {
+    cognitoId: string;
+    email: string;
+    emailVerified: boolean;
+    name?: string;
+    profilePicture?: string;
+  }): Promise<User>;
+  
   // Avatar methods
   getUserAvatars(userId: string): Promise<any[]>;
   getUserAvatar(avatarId: string): Promise<any | undefined>;

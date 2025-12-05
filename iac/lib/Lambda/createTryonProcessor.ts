@@ -2,8 +2,8 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Stack } from 'aws-cdk-lib';
-import { IVpc } from 'aws-cdk-lib/aws-ec2';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { env } from '../../../parameters/config';
 
@@ -12,7 +12,11 @@ interface CreateTryonProcessorProps {
   guidanceBucket: s3.Bucket;
   rendersBucket: s3.Bucket;
   smplAssetsBucket?: s3.Bucket;
-  vpc?: IVpc;
+  vpc?: ec2.IVpc;
+  securityGroups?: ec2.ISecurityGroup[];
+  vpcSubnets?: ec2.SubnetSelection;
+  redisEndpoint?: string;
+  redisPort?: string;
 }
 
 export default function createTryonProcessor(
@@ -20,7 +24,7 @@ export default function createTryonProcessor(
   stage: string,
   props: CreateTryonProcessorProps,
 ) {
-  const { uploadsBucket, guidanceBucket, rendersBucket, smplAssetsBucket, vpc } = props;
+  const { uploadsBucket, guidanceBucket, rendersBucket, smplAssetsBucket, vpc, securityGroups, vpcSubnets, redisEndpoint, redisPort } = props;
   
   // Lambda execution role with scoped permissions
   const tryonProcessorRole = new iam.Role(stack, `TryonProcessorRole-${stage}`, {
@@ -112,8 +116,13 @@ export default function createTryonProcessor(
       SMPL_PROCESSING_MODE: env.SMPL_PROCESSING_MODE || 'LAMBDA',
       ECS_CLUSTER_NAME: env.ECS_CLUSTER_NAME || '',
       ECS_TASK_DEFINITION: env.ECS_TASK_DEFINITION || '',
+      // Redis configuration
+      ...(redisEndpoint && { REDIS_ENDPOINT: redisEndpoint }),
+      ...(redisPort && { REDIS_PORT: redisPort }),
     },
-    vpc: vpc,
+    vpc,
+    securityGroups,
+    vpcSubnets,
   });
 
   // Grant SQS permissions (will be added by event source mapping)
