@@ -14,7 +14,7 @@ interface CreateLambdaProps {
 
 export default function createLambda(
   stack: cdk.Stack, 
-  id = 'ModelMeApiLambda',
+  id = 'GarmaxApiLambda',
   props?: CreateLambdaProps
 ) {
   const { vpc, securityGroups, vpcSubnets, redisEndpoint, redisPort } = props || {};
