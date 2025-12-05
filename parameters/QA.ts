@@ -6,11 +6,11 @@ export default {
     S3_BUCKET: 'PLACEHOLDER_S3_BUCKET',
     TEMP_BUCKET: "",
     AcmCert: {
-        "us-east-1": { id: "arn:aws:acm:us-east-1:920792187297:certificate/8b4e5879-bdfd-4975-b69d-55942368b906" },
+        "us-east-1": { id: "arn:aws:acm:us-east-1:920792187297:certificate/68fc6f20-c61b-48cd-bc94-df5e3b6b5210" },
         "us-west-2": { id: "PLACEHOLDER_ACM_ARN" }
     },
     certificateid: {
-        "us-east-1": { id: "8b4e5879-bdfd-4975-b69d-55942368b906" },
+        "us-east-1": { id: "68fc6f20-c61b-48cd-bc94-df5e3b6b5210" },
         "us-west-2": { id: "PLACEHOLDER_CERT_ID" }
     },
     ecrname: { "us-east-1": { name: "garmaxecr" }, "us-west-2": { name: "PLACEHOLDER_ECR" } },
@@ -21,7 +21,7 @@ export default {
     backendHostedZoneName: "qa-be.garmaxai.com",
     backendHostedZoneId: "Z08617541QAW22A1V5U0J",
     BackendAcmCert: {
-        "us-east-1": { id: "arn:aws:acm:us-east-1:920792187297:certificate/a84cac98-408d-4640-bddc-d8662bc4ca38" },
+        "us-east-1": { id: "arn:aws:acm:us-east-1:920792187297:certificate/5925bf9e-5ddb-4f66-9e9c-81e3b44ad41f" },
         "us-west-2": { id: "PLACEHOLDER_BACKEND_ACM_ARN" }
     },
     useCnameForBackend: false,
