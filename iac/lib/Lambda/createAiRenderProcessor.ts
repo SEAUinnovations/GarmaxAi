@@ -131,7 +131,7 @@ export default function createAiRenderProcessor(
   // IAM permissions for S3 bucket access
   
   // Read access to guidance assets (depth maps, normal maps, prompts)
-  guidanceBucket.grantRead(aiRenderProcessorRole, 'depth/*');*');
+  guidanceBucket.grantRead(aiRenderProcessorRole, 'depth/*');
   guidanceBucket.grantRead(aiRenderProcessorRole, 'normals/*');
   guidanceBucket.grantRead(aiRenderProcessorRole, 'poses/*');
   guidanceBucket.grantRead(aiRenderProcessorRole, 'prompts/*');

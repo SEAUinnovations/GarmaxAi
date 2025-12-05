@@ -9,7 +9,8 @@ export interface BudgetMonitoringProps {
   stage: string;
   dailyBudgetUsd: number;
   alertEmail: string;
-  vpcId?: string; // For NAT Gateway filtering\n}
+  vpcId?: string; // For NAT Gateway filtering
+}
 
 /**
  * Creates CloudWatch alarms and SNS notifications for budget monitoring

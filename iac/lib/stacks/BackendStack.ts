@@ -24,6 +24,11 @@ import createCognito from '../Cognito/createCognito';
 import createDBSecurityGroup from '../IAM/SecurityGroups/createDBSecurityGroup';
 import createLambdaProcessorSG from '../IAM/SecurityGroups/createLambdaProcessorSG';
 import type { VpcEndpointsConfig } from '../VPC/createVpcEndpoints';
+import createResourceStateTable from '../DynamoDB/createResourceStateTable';
+import createNATGatewayManager from '../Lambda/createNATGatewayManager';
+import createTeardownOrchestrator from '../Lambda/createTeardownOrchestrator';
+import createRestoreOrchestrator from '../Lambda/createRestoreOrchestrator';
+import { createIdleTeardownRules } from '../EventBridge/createIdleTeardownRules';
 
 export interface BackendStackProps extends cdk.StackProps {
   stage: string;
@@ -88,6 +93,58 @@ export class BackendStack extends cdk.Stack {
     this.identityPool = identityPool as cognito.CfnIdentityPool;
     this.cognitoDomain = cognitoDomain as cognito.UserPoolDomain;
 
+    // Create idle teardown/restore infrastructure (enabled for all stages during beta)
+    // Idle thresholds: DEV=1hr, QA=2hr, PROD=8hr
+    const stateTable = createResourceStateTable(this, props.stage);
+
+    const natGatewayManager = createNATGatewayManager(this, {
+      stage: props.stage,
+      vpc: props.vpc,
+      stateTableName: stateTable.tableName,
+    });
+
+    // ECS infrastructure for SMPL processing
+    const ecrRepository = createEcrRepository(this, props.stage);
+    
+    const ecsInfrastructure = props.envConfig.ENABLE_ECS_HEAVY_JOBS ? createEcsCluster(
+      this, 
+      props.stage, 
+      {
+        vpc: props.vpc,
+        uploadsBucket: props.uploadsBucket,
+        guidanceBucket: props.guidanceBucket,
+        rendersBucket: props.rendersBucket,
+        smplAssetsBucket: props.smplAssetsBucket,
+        ecrRepository
+      }
+    ) : null;
+
+    const teardownOrchestrator = createTeardownOrchestrator(this, {
+      stage: props.stage,
+      vpc: props.vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaProcessorSG],
+      rdsClusterId: this.rdsCluster.clusterIdentifier,
+      elasticacheClusterId: undefined, // ElastiCache is managed in SharedInfraStack
+      ecsClusterName: ecsInfrastructure?.cluster.clusterName,
+      stateTableName: stateTable.tableName,
+    });
+
+    const restoreOrchestrator = createRestoreOrchestrator(this, {
+      stage: props.stage,
+      vpc: props.vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      securityGroups: [lambdaProcessorSG],
+      stateTableName: stateTable.tableName,
+    });
+
+    // Create EventBridge rules for idle detection and activity-based restore
+    createIdleTeardownRules(this, {
+      stage: props.stage,
+      teardownOrchestrator,
+      restoreOrchestrator,
+    });
+
     // Create API Lambda with VPC configuration
     const pythonLambda = createPythonLambda(this, 'GarmaxLambda', {
       vpc: props.vpc,
@@ -114,22 +171,6 @@ export class BackendStack extends cdk.Stack {
       });
       this.apiDomainName = apiDomain.domainName;
     }
-
-    // Create ECS infrastructure for heavy SMPL processing (optional based on feature flag)
-    const ecrRepository = createEcrRepository(this, props.stage);
-    
-    const ecsInfrastructure = props.envConfig.ENABLE_ECS_HEAVY_JOBS ? createEcsCluster(
-      this, 
-      props.stage, 
-      {
-        vpc: props.vpc,
-        uploadsBucket: props.uploadsBucket,
-        guidanceBucket: props.guidanceBucket,
-        rendersBucket: props.rendersBucket,
-        smplAssetsBucket: props.smplAssetsBucket,
-        ecrRepository
-      }
-    ) : null;
 
     // Create SQS queues and EventBridge bus for event-driven processing
     const { tryonQueue } = createTryonQueue(this, props.stage);
@@ -309,6 +350,25 @@ export class BackendStack extends cdk.Stack {
       value: this.cognitoDomain.baseUrl(),
       exportName: `Backend-CognitoDomainUrl-${props.stage}`,
       description: 'Cognito Hosted UI domain URL for Google SSO',
+    });
+
+    // Teardown/Restore Outputs
+    new cdk.CfnOutput(this, `TeardownOrchestratorArn`, {
+      value: teardownOrchestrator.functionArn,
+      exportName: `Backend-TeardownOrchestrator-${props.stage}`,
+      description: 'Lambda function to orchestrate resource teardown during idle',
+    });
+
+    new cdk.CfnOutput(this, `RestoreOrchestratorArn`, {
+      value: restoreOrchestrator.functionArn,
+      exportName: `Backend-RestoreOrchestrator-${props.stage}`,
+      description: 'Lambda function to orchestrate resource restoration',
+    });
+
+    new cdk.CfnOutput(this, `NATGatewayManagerArn`, {
+      value: natGatewayManager.functionArn,
+      exportName: `Backend-NATGatewayManager-${props.stage}`,
+      description: 'Lambda function to manage NAT Gateway teardown/restore',
     });
   }
 

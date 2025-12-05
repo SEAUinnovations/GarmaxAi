@@ -15,6 +15,13 @@
     "@aws-sdk/client-ssm": "^3.712.0",
     "@aws-sdk/client-sqs": "^3.712.0",
     "@aws-sdk/client-s3": "^3.712.0",
+    "@aws-sdk/client-rds": "^3.712.0",
+    "@aws-sdk/client-elasticache": "^3.712.0",
+    "@aws-sdk/client-ecs": "^3.712.0",
+    "@aws-sdk/client-lambda": "^3.712.0",
+    "@aws-sdk/client-sns": "^3.712.0",
+    "@aws-sdk/client-ec2": "^3.712.0",
+    "@aws-sdk/lib-dynamodb": "^3.712.0",
     "@aws-sdk/util-dynamodb": "^3.712.0"
   },
   "devDependencies": {

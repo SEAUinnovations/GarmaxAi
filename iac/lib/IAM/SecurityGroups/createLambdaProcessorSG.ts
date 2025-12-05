@@ -92,12 +92,8 @@ export default function createLambdaProcessorSG(
     'Allow Lambda processors to connect to RDS'
   );
 
-  // Allow Lambda to connect to ElastiCache
-  (elastiCacheSecurityGroup as ec2.SecurityGroup).addIngressRule(
-    lambdaProcessorSG,
-    ec2.Port.tcp(6379),
-    'Allow Lambda processors to connect to ElastiCache Redis'
-  );
+  // Note: ElastiCache ingress rules are configured in SharedInfraStack
+  // to avoid circular dependencies between stacks
 
   // VPC endpoint security group already allows all VPC CIDR, no additional rule needed
 

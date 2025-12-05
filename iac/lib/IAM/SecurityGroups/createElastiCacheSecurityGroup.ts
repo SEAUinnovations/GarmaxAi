@@ -29,8 +29,13 @@ export default function createElastiCacheSecurityGroup(
     }
   );
 
-  // Ingress rules will be added by Lambda security group configuration
-  // to allow access from specific Lambda functions
+  // Allow Redis connections from VPC private subnets (where Lambda functions run)
+  // This avoids circular dependencies with BackendStack
+  elastiCacheSecurityGroup.addIngressRule(
+    ec2.Peer.ipv4(vpc.vpcCidrBlock),
+    ec2.Port.tcp(6379),
+    'Allow Redis access from VPC private subnets (Lambda functions)'
+  );
 
   return elastiCacheSecurityGroup;
 }
