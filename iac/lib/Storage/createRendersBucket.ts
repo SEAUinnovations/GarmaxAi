@@ -125,11 +125,9 @@ export default function createRendersBucket(
       },
     ],
     
-    // Cleanup on stack deletion (non-production only)
-    ...(stage.toLowerCase() !== 'prod' && {
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-    }),
+    // Cleanup on stack deletion (all environments)
+    removalPolicy: cdk.RemovalPolicy.DESTROY,
+    autoDeleteObjects: true,
   });
   
   // CloudFormation outputs

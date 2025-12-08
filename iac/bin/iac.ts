@@ -42,13 +42,11 @@ const backendStack = new BackendStack(app, `GarmaxAi-Backend-${stage}`, {
 });
 
 // Create FrontendStack (CloudFront distributions for frontend and API)
+// Frontend now reads API info from SSM instead of BackendStack exports to avoid cross-stack dependencies
 const frontendStack = new FrontendStack(app, `GarmaxAi-Frontend-${stage}`, {
   stackName: `GarmaxAi-Frontend-${stage}`,
   stage,
   staticSiteBucketName: sharedInfraStack.staticSiteBucket.bucketName,
-  apiUrl: backendStack.apiGateway.url,
-  apiDomainName: backendStack.apiDomainName,
-  apiStageName: backendStack.apiGateway.deploymentStage?.stageName,
   envConfig: envConfig,
   env,
 });

@@ -73,8 +73,9 @@ export default function createSmplAssetsBucket(
       },
     ],
     
-    // Never auto-delete in any environment (data protection)
-    removalPolicy: cdk.RemovalPolicy.RETAIN,
+    // Cleanup on stack deletion (all environments - backed up externally)
+    removalPolicy: cdk.RemovalPolicy.DESTROY,
+    autoDeleteObjects: true,
   });
   
   // Explicit bucket policy to deny all public access and unauthorized principals

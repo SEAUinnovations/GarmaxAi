@@ -24,7 +24,7 @@ export default function createResourceStateTable(stack: Stack, stage: string): d
       type: dynamodb.AttributeType.STRING,
     },
     billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-    removalPolicy: stage === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    removalPolicy: cdk.RemovalPolicy.DESTROY,
     pointInTimeRecovery: stage === 'prod',
     encryption: dynamodb.TableEncryption.AWS_MANAGED,
   });

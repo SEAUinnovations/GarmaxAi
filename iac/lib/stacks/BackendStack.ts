@@ -157,6 +157,19 @@ export class BackendStack extends cdk.Stack {
     // Create API Gateway (RestApi) and integrate with Lambda
     this.apiGateway = createApiGateway(this, pythonLambda, 'GarmaxApi');
 
+    // Store API Gateway URL in SSM for frontend stack to use (avoids cross-stack exports)
+    new cdk.aws_ssm.StringParameter(this, 'ApiGatewayUrlParameter', {
+      parameterName: `/garmaxai/${props.stage}/api/gateway-url`,
+      stringValue: this.apiGateway.url,
+      description: 'API Gateway URL for frontend CloudFront distribution',
+    });
+
+    new cdk.aws_ssm.StringParameter(this, 'ApiGatewayStageNameParameter', {
+      parameterName: `/garmaxai/${props.stage}/api/stage-name`,
+      stringValue: this.apiGateway.deploymentStage.stageName,
+      description: 'API Gateway stage name',
+    });
+
     // Add custom domain to API Gateway if configured
     const backendDomain = (props.envConfig as any).backendDomainName || `backend.${props.envConfig.hostedZoneName}`;
     
@@ -170,6 +183,13 @@ export class BackendStack extends cdk.Stack {
         ),
       });
       this.apiDomainName = apiDomain.domainName;
+
+      // Store custom domain in SSM for frontend stack
+      new cdk.aws_ssm.StringParameter(this, 'ApiDomainNameParameter', {
+        parameterName: `/garmaxai/${props.stage}/api/domain-name`,
+        stringValue: apiDomain.domainName,
+        description: 'API Gateway custom domain name',
+      });
     }
 
     // Create SQS queues and EventBridge bus for event-driven processing

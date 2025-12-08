@@ -7,9 +7,6 @@ import createFrontend from '../Cloudfront/createFrontend';
 export interface FrontendStackProps extends cdk.StackProps {
   stage: string;
   staticSiteBucketName: string; // Changed from Bucket object to bucket name string
-  apiUrl: string;
-  apiDomainName?: string;
-  apiStageName?: string;
   envConfig: any; // Environment configuration (domain names, certs, etc.)
 }
 
@@ -36,10 +33,22 @@ export class FrontendStack extends cdk.Stack {
       props.staticSiteBucketName
     );
     
-    // Create CloudFront distribution for API Gateway
-    // Use custom domain if configured, otherwise use API Gateway URL directly
-    const apiOriginDomain = props.apiDomainName || props.apiUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const apiPath = props.apiDomainName && props.apiStageName ? `/${props.apiStageName}` : '';
+    // Construct API Gateway info from environment configuration
+    // If backend custom domain is configured, use it; otherwise use default backend domain
+    let apiOriginDomain: string;
+    let apiPath: string = '';
+    
+    if (props.envConfig.backendDomainName && !props.envConfig.backendDomainName.includes('PLACEHOLDER')) {
+      // Use custom backend domain (e.g., be.garmaxai.com for PROD)
+      apiOriginDomain = props.envConfig.backendDomainName;
+      // Custom domain doesn't need stage in path
+      apiPath = '';
+    } else {
+      // Use default backend domain pattern: backend.{hostedZoneName}
+      const backendDomain = `backend.${props.envConfig.hostedZoneName}`;
+      apiOriginDomain = backendDomain;
+      apiPath = '';
+    }
     
     const apiDist = createCloudfront(
       this, 

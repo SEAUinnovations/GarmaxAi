@@ -19,9 +19,9 @@ export default function createRDS(
         engine: aws_rds.DatabaseClusterEngine.auroraMysql({ version: aws_rds.AuroraMysqlEngineVersion.VER_3_04_0 }),
         writer: aws_rds.ClusterInstance.provisioned('writer', {
             instanceIdentifier:`garmaxai-db-writer-${stage}`,
-            instanceType: aws_ec2.InstanceType.of(aws_ec2.InstanceClass.T3, aws_ec2.InstanceSize.MICRO),
+            instanceType: aws_ec2.InstanceType.of(aws_ec2.InstanceClass.T3, aws_ec2.InstanceSize.MEDIUM),
         }),
-        removalPolicy:RemovalPolicy.RETAIN,
+        removalPolicy:RemovalPolicy.DESTROY,
         vpc,
         securityGroups: [RDS_SG],
         credentials: aws_rds.Credentials.fromGeneratedSecret('dbadmin'),
