@@ -16,7 +16,8 @@ export default function createStaticSiteBucket(
       {
         allowedMethods: [
           cdk.aws_s3.HttpMethods.GET,
-          cdk.aws_s3.HttpMethods.HEAD,
+          cdk.aws_s3.HttpMethods.POST,
+          cdk.aws_s3.HttpMethods.DELETE,
         ],
         allowedOrigins: ['*'],
         allowedHeaders: ['*'],
