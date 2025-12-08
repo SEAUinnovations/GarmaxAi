@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Switch } from '../ui/switch';
-import { Badge } from '../ui/badge';
-import { Label } from '../ui/label';
-import { Separator } from '../ui/separator';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { Info, Shield, TrendingDown, Clock, Trash2 } from 'lucide-react';
 
 export interface BiometricConsentOptions {
@@ -176,7 +176,7 @@ export const BiometricConsentModal: React.FC<BiometricConsentModalProps> = ({
                       </div>
                       <Switch
                         checked={isEnabled}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked: boolean) => 
                           handleConsentToggle(key as keyof BiometricConsentOptions, checked)
                         }
                       />
@@ -234,7 +234,7 @@ export const BiometricConsentModal: React.FC<BiometricConsentModalProps> = ({
                   </div>
                   <Switch
                     checked={consent.cacheEnabled}
-                    onCheckedChange={(checked) => handleConsentToggle('cacheEnabled', checked)}
+                    onCheckedChange={(checked: boolean) => handleConsentToggle('cacheEnabled', checked)}
                     disabled={!consent.facialAnalysis && !consent.bodyAnalysis}
                   />
                 </div>

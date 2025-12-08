@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useLocation } from "wouter"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -24,7 +24,7 @@ export function ProfileOnboardingModal({
 }: ProfileOnboardingModalProps) {
   const [currentStep, setCurrentStep] = useState<'benefits' | 'form'>('benefits')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const router = useRouter()
+  const [, navigate] = useLocation()
   
   const handleContinueToForm = () => {
     setCurrentStep('form')
@@ -32,7 +32,7 @@ export function ProfileOnboardingModal({
   
   const handleSkipForNow = () => {
     onClose()
-    router.push('/dashboard')
+    navigate('/dashboard')
   }
   
   const handleFormSubmit = async (profileData: any) => {
@@ -40,7 +40,7 @@ export function ProfileOnboardingModal({
     try {
       await onComplete(profileData)
       onClose()
-      router.push('/dashboard?profileCompleted=true')
+      navigate('/dashboard?profileCompleted=true')
     } catch (error) {
       console.error('Profile submission failed:', error)
     } finally {

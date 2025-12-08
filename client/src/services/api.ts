@@ -1,5 +1,5 @@
 // Comprehensive API service layer for frontend-backend communication
-import type { User, PhysicalProfile, TryonSession } from '@shared/schema';
+import type { User, PhysicalProfile, TryonSession } from '../../../shared/schema';
 
 /**
  * Custom API Error class for handling HTTP errors

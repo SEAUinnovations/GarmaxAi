@@ -90,6 +90,14 @@ export const storage = {
     subscriptionTier?: 'free' | 'studio' | 'pro';
     creditsRemaining?: number;
   }) => (await StorageFactory.getStorage()).createUser(user),
+  getUserByCognitoId: async (cognitoId: string) => (await StorageFactory.getStorage()).getUserByCognitoId(cognitoId),
+  createUserFromOAuth: async (data: {
+    cognitoId: string;
+    email: string;
+    emailVerified: boolean;
+    name?: string;
+    profilePicture?: string;
+  }) => (await StorageFactory.getStorage()).createUserFromOAuth(data),
   updateUserCredits: async (userId: string, credits: number) => (await StorageFactory.getStorage()).updateUserCredits(userId, credits),
   createGeneration: async (generation: InsertGeneration) => (await StorageFactory.getStorage()).createGeneration(generation),
   getGeneration: async (id: string) => (await StorageFactory.getStorage()).getGeneration(id),

@@ -25,7 +25,7 @@ describe('API Service Layer', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => ({ user: mockUser })
-      } as Response);
+      } as unknown as Response);
 
       const result = await apiClient.login('test@example.com', 'password123');
 
@@ -45,7 +45,7 @@ describe('API Service Layer', () => {
         status: 401,
         headers: { get: () => 'application/json' },
         json: async () => ({ error: 'Invalid credentials' })
-      } as Response);
+      } as unknown as Response);
 
       await expect(apiClient.login('test@example.com', 'wrongpassword'))
         .rejects
@@ -77,7 +77,7 @@ describe('API Service Layer', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => ({ user: mockUser })
-      } as Response);
+      } as unknown as Response);
 
       const result = await apiClient.register(userData);
 
@@ -97,7 +97,7 @@ describe('API Service Layer', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => ({ message: 'Logged out successfully' })
-      } as Response);
+      } as unknown as Response);
 
       const result = await apiClient.logout();
 
@@ -129,7 +129,7 @@ describe('API Service Layer', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => mockProfile
-      } as Response);
+      } as unknown as Response);
 
       const result = await apiClient.getPhysicalProfile();
 
@@ -159,7 +159,7 @@ describe('API Service Layer', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => mockUpdatedProfile
-      } as Response);
+      } as unknown as Response);
 
       const result = await apiClient.updatePhysicalProfile(profileUpdate);
 
@@ -202,7 +202,7 @@ describe('API Service Layer', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => mockSession
-      } as Response);
+      } as unknown as Response);
 
       const result = await apiClient.createTryonSession(sessionData);
 
@@ -234,7 +234,7 @@ describe('API Service Layer', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => mockSession
-      } as Response);
+      } as unknown as Response);
 
       const result = await apiClient.getTryonSessionStatus(sessionId);
 
@@ -257,7 +257,7 @@ describe('API Service Layer', () => {
           message: 'Session cancelled successfully',
           refundedCredits: 3 
         })
-      } as Response);
+      } as unknown as Response);
 
       const result = await apiClient.cancelTryonSession(sessionId);
 
@@ -285,7 +285,7 @@ describe('API Service Layer', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => mockCredits
-      } as Response);
+      } as unknown as Response);
 
       const result = await apiClient.getCredits();
 
@@ -311,7 +311,7 @@ describe('API Service Layer', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => mockVariant
-      } as Response);
+      } as unknown as Response);
 
       const result = await apiClient.getABVariant();
 
@@ -330,7 +330,7 @@ describe('API Service Layer', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => ({ success: true, eventId: 'evt_456' })
-      } as Response);
+      } as unknown as Response);
 
       const result = await apiClient.trackProfileEvent(eventData);
 
@@ -361,7 +361,7 @@ describe('API Service Layer', () => {
         headers: { get: () => 'text/html' },
         text: async () => 'Internal Server Error',
         statusText: 'Internal Server Error'
-      } as Response);
+      } as unknown as Response);
 
       await expect(apiClient.getCurrentUser())
         .rejects
@@ -376,7 +376,7 @@ describe('API Service Layer', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => { throw new Error('Invalid JSON'); }
-      } as Response);
+      } as unknown as Response);
 
       await expect(apiClient.getCurrentUser())
         .rejects

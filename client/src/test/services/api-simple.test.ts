@@ -26,7 +26,7 @@ describe('API Service Layer - Core Functionality', () => {
         status: 404,
         headers: { get: () => 'application/json' },
         json: async () => ({ error: 'Not found' })
-      } as Response);
+      } as unknown as Response);
 
       await expect(apiClient.getCurrentUser())
         .rejects
@@ -41,7 +41,7 @@ describe('API Service Layer - Core Functionality', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => { throw new Error('Invalid JSON'); }
-      } as Response);
+      } as unknown as Response);
 
       await expect(apiClient.getCurrentUser())
         .rejects
@@ -55,7 +55,7 @@ describe('API Service Layer - Core Functionality', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => ({ status: 'ok' })
-      } as Response);
+      } as unknown as Response);
 
       await apiClient.getHealthStatus();
 
@@ -72,7 +72,7 @@ describe('API Service Layer - Core Functionality', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => ({ user: { id: '123' } })
-      } as Response);
+      } as unknown as Response);
 
       await apiClient.login(loginData.email, loginData.password);
 
@@ -97,7 +97,7 @@ describe('API Service Layer - Core Functionality', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => mockHealthData
-      } as Response);
+      } as unknown as Response);
 
       const result = await apiClient.getHealthStatus();
 
@@ -111,7 +111,7 @@ describe('API Service Layer - Core Functionality', () => {
         ok: true,
         headers: { get: () => 'application/json' },
         json: async () => ({ sessions: [], total: 0, hasMore: false })
-      } as Response);
+      } as unknown as Response);
 
       await apiClient.getUserTryonSessions(10, 20);
 

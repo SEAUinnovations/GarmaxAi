@@ -134,6 +134,10 @@ async function findOrCreateUserFromCognito(cognitoUser: {
       profilePicture: cognitoUser.picture,
     });
   }
+
+  if (!user) {
+    throw new Error('Failed to find or create user');
+  }
   
   return user;
 }

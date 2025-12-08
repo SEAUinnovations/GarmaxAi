@@ -240,3 +240,18 @@ export type TryonSession = typeof tryonSessions.$inferSelect;
 export type InsertTryonSession = typeof tryonSessions.$inferInsert;
 export type GeminiBatchJob = typeof geminiBatchJobs.$inferSelect;
 export type InsertGeminiBatchJob = typeof geminiBatchJobs.$inferInsert;
+
+// Physical profile type for API responses
+export type PhysicalProfile = {
+  heightFeet: number | null;
+  heightInches: number | null;
+  ageRange: string | null;
+  gender: string | null;
+  bodyType: string | null;
+  ethnicity: string | null;
+  profileCompleted: boolean;
+  profileCompletedAt: Date | null;
+  stylePreferences: string[] | null;
+  measurementSystem: string;
+};
+

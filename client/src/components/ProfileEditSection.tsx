@@ -214,8 +214,8 @@ export function ProfileEditSection({ className = "" }: ProfileEditSectionProps) 
                 <p className="text-sm text-muted-foreground mb-1">Style Preferences</p>
                 <div className="flex flex-wrap gap-1">
                   {profile.stylePreferences && profile.stylePreferences.length > 0 ? (
-                    profile.stylePreferences.map(style => (
-                      <Badge key={style} variant="secondary" size="sm" className="capitalize">
+                    profile.stylePreferences.map((style: string) => (
+                      <Badge key={style} variant="secondary" className="capitalize">
                         {style}
                       </Badge>
                     ))
