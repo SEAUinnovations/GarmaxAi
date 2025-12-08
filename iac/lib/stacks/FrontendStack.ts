@@ -64,6 +64,21 @@ export class FrontendStack extends cdk.Stack {
       ? (props.envConfig as any).frontendDomainName
       : props.envConfig.hostedZoneName;
 
+    
+    //A record for frontend domain
+    const hostedZone = cdk.aws_route53.HostedZone.fromLookup(this, 'HostedZone', {
+      domainName: props.envConfig.hostedZoneName,
+    });
+
+    //Attach A record to CloudFront distribution
+    new cdk.aws_route53.ARecord(this, `FrontendAliasRecord-${props.stage}`, {
+      zone: hostedZone,
+      recordName: frontendDomain,
+      target: cdk.aws_route53.RecordTarget.fromAlias(
+        new cdk.aws_route53_targets.CloudFrontTarget(apiDist)
+      ),
+    });
+
     const feDist = createFrontend(this, props.stage, staticSiteBucket, {
       region,
       domainName: frontendDomain,

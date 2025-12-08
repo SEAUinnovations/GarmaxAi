@@ -293,6 +293,7 @@ jobs:
       - run:
           name: Build frontend (ensure public exists)
           command: |
+            cd client
             npm run build
             mkdir -p dist/public
       - run:
@@ -322,6 +323,7 @@ jobs:
       - run:
           name: Build frontend (ensure public exists)
           command: |
+            cd client
             npm run build
             mkdir -p dist/public
       - run:
@@ -351,6 +353,7 @@ jobs:
       - run:
           name: Build frontend (ensure public exists)
           command: |
+            cd client
             npm run build
             mkdir -p dist/public
       - run:
