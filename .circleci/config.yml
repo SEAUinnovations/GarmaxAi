@@ -290,6 +290,11 @@ jobs:
           name: Deploy CDK stack to development
           command: npm run deploy:dev
       - run:
+          name: Build frontend (ensure public exists)
+          command: |
+            npm run build
+            mkdir -p dist/public
+      - run:
           name: Upload frontend to S3
           command: |
             BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-dev --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
@@ -314,6 +319,11 @@ jobs:
           name: Deploy CDK stack to QA
           command: npm run deploy:qa
       - run:
+          name: Build frontend (ensure public exists)
+          command: |
+            npm run build
+            mkdir -p dist/public
+      - run:
           name: Upload frontend to S3
           command: |
             BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-qa --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
@@ -337,6 +347,11 @@ jobs:
       - run:
           name: Deploy CDK stack to production
           command: npm run deploy:prod
+      - run:
+          name: Build frontend (ensure public exists)
+          command: |
+            npm run build
+            mkdir -p dist/public
       - run:
           name: Upload frontend to S3
           command: |
