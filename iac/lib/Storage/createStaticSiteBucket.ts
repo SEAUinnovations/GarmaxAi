@@ -5,7 +5,7 @@ export default function createStaticSiteBucket(
   stack: Stack,
   idSuffix: string,
 ) {
-  const bucket = new cdk.aws_s3.Bucket(stack, `StaticSiteBucket-${idSuffix}` , {
+  const bucket = new cdk.aws_s3.Bucket(stack, `GarmaxSiteBucket-${idSuffix}` , {
     encryption: cdk.aws_s3.BucketEncryption.S3_MANAGED,
     blockPublicAccess: cdk.aws_s3.BlockPublicAccess.BLOCK_ALL,
     enforceSSL: true,
