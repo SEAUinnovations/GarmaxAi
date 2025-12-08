@@ -7,6 +7,7 @@ export default function createStaticSiteBucket(
 ) {
   const bucket = new cdk.aws_s3.Bucket(stack, `GarmaxSiteBucket-${idSuffix}` , {
     encryption: cdk.aws_s3.BucketEncryption.S3_MANAGED,
+    bucketName: `garmaxsite-${idSuffix.toLowerCase()}`,
     blockPublicAccess: cdk.aws_s3.BlockPublicAccess.BLOCK_ALL,
     enforceSSL: true,
     removalPolicy: cdk.RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
