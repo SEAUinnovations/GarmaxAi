@@ -284,21 +284,14 @@ jobs:
           name: Deploy CDK stack to development
           command: npm run deploy:dev
       - run:
-          name: Build frontend (ensure public exists)
+          name: Build and deploy frontend to S3
           command: |
-            cd client
-            npm run build
-            mkdir -p dist/public
-      - run:
-          name: Upload frontend to S3
-          command: |
-            BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-dev --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
-            aws s3 sync dist/public s3://${BUCKET_NAME} --delete
-      - run:
-          name: Invalidate CloudFront cache
-          command: |
-            DIST_ID=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-dev --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId'].OutputValue" --output text)
-            aws cloudfront create-invalidation --distribution-id ${DIST_ID} --paths "/*"
+            # Get S3 bucket and CloudFront distribution from CloudFormation
+            export S3_BUCKET=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-dev --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
+            export CLOUDFRONT_DIST_ID_DEV=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-dev --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId'].OutputValue" --output text)
+            
+            # Run deployment script
+            STAGE=dev ./scripts/deploy-frontend.sh
 
   # Deploy to QA
   deploy-qa:
@@ -314,21 +307,14 @@ jobs:
           name: Deploy CDK stack to QA
           command: npm run deploy:qa
       - run:
-          name: Build frontend (ensure public exists)
+          name: Build and deploy frontend to S3
           command: |
-            cd client
-            npm run build
-            mkdir -p dist/public
-      - run:
-          name: Upload frontend to S3
-          command: |
-            BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-qa --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
-            aws s3 sync dist/public s3://${BUCKET_NAME} --delete
-      - run:
-          name: Invalidate CloudFront cache
-          command: |
-            DIST_ID=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-qa --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId'].OutputValue" --output text)
-            aws cloudfront create-invalidation --distribution-id ${DIST_ID} --paths "/*"
+            # Get S3 bucket and CloudFront distribution from CloudFormation
+            export S3_BUCKET=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-qa --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
+            export CLOUDFRONT_DIST_ID_QA=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-qa --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId'].OutputValue" --output text)
+            
+            # Run deployment script
+            STAGE=qa ./scripts/deploy-frontend.sh
 
   # Deploy to production
   deploy-prod:
@@ -344,21 +330,14 @@ jobs:
           name: Deploy CDK stack to production
           command: npm run deploy:prod
       - run:
-          name: Build frontend (ensure public exists)
+          name: Build and deploy frontend to S3
           command: |
-            cd client
-            npm run build
-            mkdir -p dist/public
-      - run:
-          name: Upload frontend to S3
-          command: |
-            BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-prod --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
-            aws s3 sync dist/public s3://${BUCKET_NAME} --delete
-      - run:
-          name: Invalidate CloudFront cache
-          command: |
-            DIST_ID=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-prod --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId'].OutputValue" --output text)
-            aws cloudfront create-invalidation --distribution-id ${DIST_ID} --paths "/*"
+            # Get S3 bucket and CloudFront distribution from CloudFormation
+            export S3_BUCKET=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-prod --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
+            export CLOUDFRONT_DIST_ID_PROD=$(aws cloudformation describe-stacks --stack-name GarmaxAi-Frontend-prod --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId'].OutputValue" --output text)
+            
+            # Run deployment script
+            STAGE=prod ./scripts/deploy-frontend.sh
 
 # Workflows
 workflows:
