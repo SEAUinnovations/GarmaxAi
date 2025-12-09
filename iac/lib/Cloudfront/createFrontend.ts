@@ -32,7 +32,10 @@ export default function createFrontend(
       `FrontendCertificate-${stage}`,
       env.AcmCert[region].id,
     );
-    domainNames = [domainName];
+    
+    // Include both apex domain and www subdomain if this is a root domain
+    const isApexDomain = !domainName.includes('.') || domainName === env.hostedZoneName;
+    domainNames = isApexDomain ? [domainName, `www.${domainName}`] : [domainName];
   }
 
   // Use OAC (Origin Access Control) for private S3 origin access - modern replacement for OAI
@@ -113,12 +116,42 @@ export default function createFrontend(
       const hostedZone = route53.HostedZone.fromLookup(stack, `FrontendHostedZone-${stage}`, {
         domainName: env.hostedZoneName,
       });
+      
+      // Create A record for primary domain (e.g., garmaxai.com)
       new route53.ARecord(stack, `FrontendAliasRecord-${stage}`, {
         recordName: domainName,
         zone: hostedZone,
         target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
-        ttl: Duration.minutes(5),
       });
+      
+      // Create AAAA record for IPv6 support
+      new route53.AaaaRecord(stack, `FrontendAliasRecordIPv6-${stage}`, {
+        recordName: domainName,
+        zone: hostedZone,
+        target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
+      });
+      
+      // If this is an apex domain (no subdomain), also create www redirect
+      if (!domainName.includes('.') || domainName === env.hostedZoneName) {
+        // Add www as additional alternate domain name
+        const wwwDomain = `www.${domainName}`;
+        
+        // Note: www subdomain requires being added to CloudFront alternate domain names
+        // This is handled in the distribution domainNames array above
+        // Create A record for www subdomain
+        new route53.ARecord(stack, `FrontendWwwAliasRecord-${stage}`, {
+          recordName: wwwDomain,
+          zone: hostedZone,
+          target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
+        });
+        
+        // Create AAAA record for www subdomain IPv6
+        new route53.AaaaRecord(stack, `FrontendWwwAliasRecordIPv6-${stage}`, {
+          recordName: wwwDomain,
+          zone: hostedZone,
+          target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
+        });
+      }
     } catch (_e) {
       // If zone lookup fails during synth, skip record creation
     }
