@@ -17,6 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<{ requiresVerification: boolean; message?: string }>;
   startFreeTrial: (email: string) => Promise<{ requiresVerification: boolean; message: string; tempPassword?: string }>;
   verifyTrialEmail: (email: string, verificationCode: string) => Promise<{ verified: boolean; message: string }>;
@@ -97,6 +98,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       throw error;
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/oauth/google`);
+      if (!response.ok) {
+        throw new Error('Failed to initiate Google login');
+      }
+      const { authUrl } = await response.json();
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error('Google login failed:', error);
+      throw new Error('Failed to connect to Google. Please try again.');
     }
   };
 
@@ -257,6 +272,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: !!user,
     isLoading,
     login,
+    loginWithGoogle,
     register,
     startFreeTrial,
     verifyTrialEmail,

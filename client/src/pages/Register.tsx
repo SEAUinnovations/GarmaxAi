@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
 export default function Register() {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -55,6 +57,21 @@ export default function Register() {
       setError("An error occurred during registration");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setError("");
+      const response = await fetch(`${API_BASE_URL}/auth/oauth/google`);
+      if (!response.ok) {
+        throw new Error('Failed to initiate Google login');
+      }
+      const { authUrl } = await response.json();
+      window.location.href = authUrl;
+    } catch (err) {
+      console.error('Google login failed:', err);
+      setError('Failed to connect to Google. Please try again.');
     }
   };
 
@@ -205,6 +222,7 @@ export default function Register() {
             <Button
               type="button"
               variant="outline"
+              onClick={handleGoogleLogin}
               className="w-full border-white/20 hover:bg-white/10 text-foreground transition-all duration-300"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

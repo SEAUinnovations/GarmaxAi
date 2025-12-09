@@ -34,6 +34,7 @@ export default defineConfig({
       "@shared": path.join(__dirname, "shared"),
       "@assets": path.join(__dirname, "attached_assets"),
     },
+    dedupe: ['react', 'react-dom'],
   },
   css: {
     postcss: {
@@ -44,6 +45,13 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+        },
+      },
+    },
   },
   server: {
     host: "0.0.0.0",

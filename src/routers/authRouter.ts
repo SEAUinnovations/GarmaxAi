@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as authController from "../controllers/authController";
+import * as oauthController from "../controllers/oauthController";
 import { authenticateToken } from "../middleware/auth";
 
 const router = Router();
@@ -299,5 +300,81 @@ router.post("/verify-trial-email", authController.verifyTrialEmail);
  *                   example: No pending trial found for this email
  */
 router.post("/resend-verification", authController.resendVerification);
+
+/**
+ * @swagger
+ * /auth/oauth/google:
+ *   get:
+ *     tags: [Authentication]
+ *     summary: Initiate Google OAuth flow
+ *     description: Returns the Google OAuth authorization URL to redirect the user to
+ *     parameters:
+ *       - in: query
+ *         name: returnTo
+ *         schema:
+ *           type: string
+ *         description: Optional return URL after successful authentication
+ *     responses:
+ *       200:
+ *         description: OAuth URL generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 authUrl:
+ *                   type: string
+ *                   example: https://garmaxai-prod.auth.us-east-1.amazoncognito.com/oauth2/authorize?...
+ *       500:
+ *         description: Server configuration error
+ */
+router.get("/oauth/google", oauthController.initiateGoogleLogin);
+
+/**
+ * @swagger
+ * /auth/oauth/callback:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Handle OAuth callback
+ *     description: Exchanges authorization code for tokens and creates/updates user
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [code]
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 description: Authorization code from OAuth provider
+ *               state:
+ *                 type: string
+ *                 description: State parameter for CSRF protection
+ *               redirectUri:
+ *                 type: string
+ *                 description: The redirect URI used in the auth request
+ *     responses:
+ *       200:
+ *         description: Authentication successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *                 accessToken:
+ *                   type: string
+ *                 idToken:
+ *                   type: string
+ *                 refreshToken:
+ *                   type: string
+ *       400:
+ *         description: Invalid authorization code
+ *       500:
+ *         description: Authentication failed
+ */
+router.post("/oauth/callback", oauthController.handleOAuthCallback);
 
 export default router;

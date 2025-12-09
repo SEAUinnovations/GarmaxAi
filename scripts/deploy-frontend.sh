@@ -41,6 +41,22 @@ if [ ! -d "client/node_modules" ]; then
   echo ""
 fi
 
+# Step 2.5: Set API URL based on stage
+case "$STAGE" in
+  dev)
+    export VITE_API_URL="https://dev.garmaxai.com/api"
+    ;;
+  qa)
+    export VITE_API_URL="https://qa.garmaxai.com/api"
+    ;;
+  prod)
+    export VITE_API_URL="https://be.garmaxai.com/api"
+    ;;
+esac
+
+echo -e "${YELLOW}API URL: $VITE_API_URL${NC}"
+echo ""
+
 # Step 3: Build frontend from root (uses root vite.config.ts)
 echo -e "${YELLOW}Building frontend...${NC}"
 cd "$PROJECT_ROOT"
@@ -68,25 +84,34 @@ if [ "$BUILD_ONLY" = "true" ] || [ "$SKIP_UPLOAD" = "true" ]; then
   exit 0
 fi
 
-# Determine S3 bucket based on stage
-case "$STAGE" in
-  dev)
-    S3_BUCKET="${S3_BUCKET:-garmaxai-frontend-dev}"
-    CLOUDFRONT_ID="${CLOUDFRONT_DIST_ID_DEV}"
-    ;;
-  qa)
-    S3_BUCKET="${S3_BUCKET:-garmaxai-frontend-qa}"
-    CLOUDFRONT_ID="${CLOUDFRONT_DIST_ID_QA}"
-    ;;
-  prod)
-    S3_BUCKET="${S3_BUCKET:-garmaxai-frontend-prod}"
-    CLOUDFRONT_ID="${CLOUDFRONT_DIST_ID_PROD}"
-    ;;
-  *)
-    echo -e "${RED}✗ Invalid STAGE: $STAGE (must be dev, qa, or prod)${NC}"
-    exit 1
-    ;;
-esac
+# Get S3 bucket and CloudFront distribution from CloudFormation
+echo -e "${YELLOW}Fetching CloudFormation outputs...${NC}"
+STACK_NAME="GarmaxAi-Frontend-${STAGE}"
+
+if [ -z "$S3_BUCKET" ]; then
+  S3_BUCKET=$(aws cloudformation describe-stacks \
+    --stack-name "$STACK_NAME" \
+    --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" \
+    --output text 2>/dev/null)
+fi
+
+if [ -z "$CLOUDFRONT_ID" ]; then
+  CLOUDFRONT_ID=$(aws cloudformation describe-stacks \
+    --stack-name "$STACK_NAME" \
+    --query "Stacks[0].Outputs[?OutputKey=='FrontendDistributionId'].OutputValue" \
+    --output text 2>/dev/null)
+fi
+
+if [ -z "$S3_BUCKET" ]; then
+  echo -e "${RED}✗ Could not determine S3 bucket from CloudFormation stack $STACK_NAME${NC}"
+  echo -e "${YELLOW}Set S3_BUCKET environment variable or ensure stack exists${NC}"
+  exit 1
+fi
+
+echo -e "${GREEN}✓ Found resources${NC}"
+echo "  Bucket: $S3_BUCKET"
+echo "  Distribution: $CLOUDFRONT_ID"
+echo ""
 
 echo -e "${YELLOW}Uploading to S3 bucket: $S3_BUCKET${NC}"
 

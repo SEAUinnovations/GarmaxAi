@@ -6,16 +6,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Camera, ArrowRight } from "lucide-react";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     // TODO: Implement actual login logic
     setTimeout(() => setIsLoading(false), 2000);
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setError("");
+      const response = await fetch(`${API_BASE_URL}/auth/oauth/google`);
+      if (!response.ok) {
+        throw new Error('Failed to initiate Google login');
+      }
+      const { authUrl } = await response.json();
+      window.location.href = authUrl;
+    } catch (err) {
+      console.error('Google login failed:', err);
+      setError('Failed to connect to Google. Please try again.');
+    }
   };
 
   return (
@@ -51,6 +69,13 @@ export default function Login() {
           className="glass-panel rounded-2xl p-8 backdrop-blur-xl border border-white/10"
         >
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Error Message */}
+            {error && (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+                {error}
+              </div>
+            )}
+
             {/* Email Field */}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-foreground font-medium">
@@ -130,6 +155,7 @@ export default function Login() {
             <Button
               type="button"
               variant="outline"
+              onClick={handleGoogleLogin}
               className="w-full border-white/20 hover:bg-white/10 text-foreground transition-all duration-300"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
