@@ -1,6 +1,7 @@
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
@@ -34,12 +35,13 @@ export default function createFrontend(
     domainNames = [domainName];
   }
 
-  // Use OAI for private S3 origin access
-  const oai = new cloudfront.OriginAccessIdentity(stack, `FrontendOAI-${stage}`);
-  bucket.grantRead(oai);
+  // Use OAC (Origin Access Control) for private S3 origin access - modern replacement for OAI
+  const oac = new cloudfront.S3OriginAccessControl(stack, `FrontendOAC-${stage}`, {
+    signing: cloudfront.Signing.SIGV4_ALWAYS,
+  });
 
-  const origin = origins.S3BucketOrigin.withOriginAccessIdentity(bucket, {
-    originAccessIdentity: oai,
+  const origin = origins.S3BucketOrigin.withOriginAccessControl(bucket, {
+    originAccessControl: oac,
   });
 
   // Response headers policy for CORS and security headers
@@ -99,6 +101,11 @@ export default function createFrontend(
       { httpStatus: 404, responseHttpStatus: 200, responsePagePath: '/index.html', ttl: Duration.seconds(0) },
     ],
   });
+
+  // NOTE: Bucket policy for OAC cannot be added here to avoid circular dependency
+  // (bucket in SharedInfraStack, distribution in FrontendStack)
+  // The bucket policy must be added manually after initial deployment or via update script
+  // See scripts/update-oac-bucket-policy.sh for automated solution
 
   // DNS Alias record to CloudFront (only if custom domain is configured)
   if (certificate && domainNames) {

@@ -42,7 +42,7 @@ const backendStack = new BackendStack(app, `GarmaxAi-Backend-${stage}`, {
 });
 
 // Create FrontendStack (CloudFront distributions for frontend and API)
-// Frontend now reads API info from SSM instead of BackendStack exports to avoid cross-stack dependencies
+// Use bucket name to avoid circular dependency - OAC bucket policy will be added separately
 const frontendStack = new FrontendStack(app, `GarmaxAi-Frontend-${stage}`, {
   stackName: `GarmaxAi-Frontend-${stage}`,
   stage,

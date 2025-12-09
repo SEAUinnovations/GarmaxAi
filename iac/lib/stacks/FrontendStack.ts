@@ -6,7 +6,7 @@ import createFrontend from '../Cloudfront/createFrontend';
 
 export interface FrontendStackProps extends cdk.StackProps {
   stage: string;
-  staticSiteBucketName: string; // Changed from Bucket object to bucket name string
+  staticSiteBucketName: string; // Bucket name to avoid circular dependency
   envConfig: any; // Environment configuration (domain names, certs, etc.)
 }
 
