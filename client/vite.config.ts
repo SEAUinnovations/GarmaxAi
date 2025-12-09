@@ -10,5 +10,6 @@ export default defineConfig({
       "@": fileURLToPath(new URL('./src', import.meta.url)),
       "@assets": fileURLToPath(new URL('../attached_assets', import.meta.url)),
     },
+    extensions: ['.tsx', '.ts', '.jsx', '.js', '.json'],
   },
 })
