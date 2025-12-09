@@ -284,6 +284,9 @@ jobs:
           name: Deploy CDK stack to development
           command: npm run deploy:dev
       - run:
+          name: Update S3 bucket policy for CloudFront OAC
+          command: STAGE=dev ./scripts/update-oac-bucket-policy.sh
+      - run:
           name: Build and deploy frontend to S3
           command: |
             # Get S3 bucket and CloudFront distribution from CloudFormation
@@ -307,6 +310,9 @@ jobs:
           name: Deploy CDK stack to QA
           command: npm run deploy:qa
       - run:
+          name: Update S3 bucket policy for CloudFront OAC
+          command: STAGE=qa ./scripts/update-oac-bucket-policy.sh
+      - run:
           name: Build and deploy frontend to S3
           command: |
             # Get S3 bucket and CloudFront distribution from CloudFormation
@@ -329,6 +335,9 @@ jobs:
       - run:
           name: Deploy CDK stack to production
           command: npm run deploy:prod
+      - run:
+          name: Update S3 bucket policy for CloudFront OAC
+          command: STAGE=prod ./scripts/update-oac-bucket-policy.sh
       - run:
           name: Build and deploy frontend to S3
           command: |
