@@ -36,6 +36,7 @@ export default defineConfig({
       "react": path.resolve(__dirname, "client", "node_modules", "react"),
       "react-dom": path.resolve(__dirname, "client", "node_modules", "react-dom"),
     },
+    extensions: ['.tsx', '.ts', '.jsx', '.js', '.json'],
   },
   css: {
     postcss: {
