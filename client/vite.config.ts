@@ -10,10 +10,10 @@ const __dirname = path.dirname(__filename)
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: [
-      { find: '@', replacement: path.resolve(__dirname, 'src') },
-      { find: '@assets', replacement: path.resolve(__dirname, '../attached_assets') },
-    ],
-    extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
+    alias: {
+      '@': path.join(__dirname, 'src'),
+      '@assets': path.join(__dirname, '../attached_assets'),
+      '@shared': path.join(__dirname, '../shared'),
+    },
   },
 })
