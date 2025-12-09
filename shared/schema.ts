@@ -189,10 +189,10 @@ export const geminiBatchJobs = mysqlTable("gemini_batch_jobs", {
 });
 
 // Zod schemas for validation
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  email: true,
-  password: true,
+export const insertUserSchema = z.object({
+  username: z.string().min(1).max(50),
+  email: z.string().email().max(255),
+  password: z.string().min(1),
 });
 
 export const generationSchema = z.object({
