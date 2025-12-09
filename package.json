@@ -29,7 +29,11 @@
     "cdk:diff": "cd iac && npx cdk diff",
     "deploy:dev": "cd iac && STAGE=dev npx cdk deploy --all --require-approval never",
     "deploy:qa": "cd iac && STAGE=qa npx cdk deploy --all --require-approval never",
-    "deploy:prod": "cd iac && STAGE=prod npx cdk deploy --all --require-approval never"
+    "deploy:prod": "cd iac && STAGE=prod npx cdk deploy --all --require-approval never",
+    "deploy:frontend:dev": "STAGE=dev ./scripts/deploy-frontend.sh",
+    "deploy:frontend:qa": "STAGE=qa ./scripts/deploy-frontend.sh",
+    "deploy:frontend:prod": "STAGE=prod ./scripts/deploy-frontend.sh",
+    "build:frontend:only": "BUILD_ONLY=true ./scripts/deploy-frontend.sh"
   },
   "notes": "removed framer motion dependency",
   "dependencies": {

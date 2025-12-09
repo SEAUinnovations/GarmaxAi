@@ -156,15 +156,8 @@ jobs:
       - install-dependencies
       - install-frontend-dependencies
       - run:
-          name: Build frontend static files
-          command: npm run build:frontend
-      - run:
-          name: Verify frontend build artifacts
-          command: |
-            if [ ! -d "dist/public" ]; then
-              echo "Frontend build failed - dist/public not found"
-              exit 1
-            fi
+          name: Build frontend with deployment script
+          command: BUILD_ONLY=true ./scripts/deploy-frontend.sh
       - save-build-artifacts
 
   # Backend testing with 90% coverage threshold
