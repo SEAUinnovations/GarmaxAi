@@ -32,7 +32,7 @@ export default function createFrontend(
       `FrontendCertificate-${stage}`,
       env.AcmCert[region].id,
     );
-    domainNames = [domainName];
+    domainNames = [domainName, `www.${domainName}`];
   }
 
   // Use OAC (Origin Access Control) for private S3 origin access - modern replacement for OAI
@@ -124,6 +124,19 @@ export default function createFrontend(
       // Create AAAA record for IPv6 support
       new route53.AaaaRecord(stack, `FrontendAliasRecordIPv6-${stage}`, {
         recordName: domainName,
+        zone: hostedZone,
+        target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
+      });
+      
+      // Create www subdomain records
+      new route53.ARecord(stack, `FrontendWwwAliasRecord-${stage}`, {
+        recordName: `www.${domainName}`,
+        zone: hostedZone,
+        target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
+      });
+      
+      new route53.AaaaRecord(stack, `FrontendWwwAliasRecordIPv6-${stage}`, {
+        recordName: `www.${domainName}`,
         zone: hostedZone,
         target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
       });

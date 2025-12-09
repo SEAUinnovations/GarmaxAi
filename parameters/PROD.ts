@@ -3,11 +3,11 @@ export default {
     S3_BUCKET: 'PLACEHOLDER_S3_BUCKET',
     TEMP_BUCKET: "",
     AcmCert: {
-        "us-east-1": { id: "arn:aws:acm:us-east-1:920792187297:certificate/afaf817e-cc40-49d6-9d67-c877b5a008ad" },
+        "us-east-1": { id: "arn:aws:acm:us-east-1:920792187297:certificate/cc684723-ae27-40d6-bbb4-f9a22feebe10" },
         "us-west-2": { id: "PLACEHOLDER_ACM_ARN" }
     },
     certificateid: {
-        "us-east-1": { id: "afaf817e-cc40-49d6-9d67-c877b5a008ad" },
+        "us-east-1": { id: "cc684723-ae27-40d6-bbb4-f9a22feebe10" },
         "us-west-2": { id: "PLACEHOLDER_CERT_ID" }
     },
     ecrname: { "us-east-1": { name: "garmaxecr" }, "us-west-2": { name: "PLACEHOLDER_ECR" } },
