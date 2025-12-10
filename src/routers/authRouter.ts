@@ -357,7 +357,7 @@ router.get("/oauth/google", oauthController.initiateGoogleLogin);
  *     responses:
  *       200:
  *         description: Authentication successful
- *         content:
+ *         content:oo,olokmbkhkokhghi
  *           application/json:
  *             schema:
  *               type: object

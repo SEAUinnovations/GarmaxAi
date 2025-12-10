@@ -42,5 +42,9 @@
         ]
       }
     ]
+  },
+  "hosted-zone:account=920792187297:domainName=dev.garmaxai.com:region=us-east-1": {
+    "Id": "/hostedzone/Z06873083I0TPIA6OYKFU",
+    "Name": "dev.garmaxai.com."
   }
 }

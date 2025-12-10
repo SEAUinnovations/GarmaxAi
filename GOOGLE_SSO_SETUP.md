@@ -66,8 +66,11 @@ For **Dev**:
 ```
 https://garmaxai-dev.auth.us-east-1.amazoncognito.com/oauth2/idpresponse
 https://dev.garmaxai.com/auth/callback
+http://localhost:5000/auth/callback
 http://localhost:3000/auth/callback
 ```
+
+> **Note**: Include both `localhost:5000` (Vite dev server) and `localhost:3000` (legacy/API server) for local development compatibility.
 
 7. Click **CREATE**
 8. **Save the Client ID and Client Secret** - you'll need these next

@@ -30,10 +30,8 @@ export function Navbar() {
 
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center gap-8">
-          <Link href="/">
-            <a className={`text-sm uppercase tracking-widest transition-colors hover:text-accent ${location === '/' ? "text-accent font-medium" : "text-muted-foreground"}`}>
-              Home
-            </a>
+          <Link href="/" className={`text-sm uppercase tracking-widest transition-colors hover:text-accent ${location === '/' ? "text-accent font-medium" : "text-muted-foreground"}`}>
+            Home
           </Link>
           <a href="/#features" className="text-sm uppercase tracking-widest transition-colors hover:text-accent text-muted-foreground">
             Features
@@ -42,12 +40,12 @@ export function Navbar() {
             Pricing
           </a>
           <div className="w-px h-4 bg-white/10 mx-2" />
-          <Link href="/login">
+          <Link href="/login" asChild>
             <Button variant="outline" className="border-white/20 hover:bg-white hover:text-black hover:border-white transition-all duration-300">
               Log In
             </Button>
           </Link>
-          <Link href="/dashboard">
+          <Link href="/dashboard" asChild>
             <Button className="bg-accent text-accent-foreground hover:bg-accent/90 font-medium px-6">
               Start Creating <Sparkles size={16} className="ml-2" />
             </Button>
@@ -74,7 +72,7 @@ export function Navbar() {
                   Pricing
                 </a>
                 <hr className="border-white/10" />
-                <Link href="/dashboard">
+                <Link href="/dashboard" asChild>
                   <Button className="w-full bg-accent text-accent-foreground" onClick={() => setIsMobileMenuOpen(false)}>
                     Dashboard
                   </Button>

@@ -4,7 +4,12 @@ import { logger } from "../utils/winston-logger";
 import type { Subscription, SubscriptionPlan } from "@shared/schema";
 import * as subscriptionDB from "./subscriptionDatabase";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+if (!stripeKey) {
+  console.warn('[subscriptionService] STRIPE_SECRET_KEY not set. Subscription features will be limited.');
+}
+
+const stripe = new Stripe(stripeKey || "sk_test_placeholder", {
   apiVersion: "2025-11-17.clover",
 });
 

@@ -76,10 +76,12 @@ export default function createCognito(
           ],
           callbackUrls: [
             `https://${stage === 'prod' ? '' : `${stage}.`}garmaxai.com/auth/callback`,
-            'http://localhost:3000/auth/callback', // For local development
+            'http://localhost:5000/auth/callback', // For local development (Vite dev server)
+            'http://localhost:3000/auth/callback', // For backward compatibility
           ],
           logoutUrls: [
             `https://${stage === 'prod' ? '' : `${stage}.`}garmaxai.com/auth/logout`,
+            'http://localhost:5000/auth/logout',
             'http://localhost:3000/auth/logout',
           ],
         },

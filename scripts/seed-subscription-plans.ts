@@ -21,6 +21,10 @@ import { drizzle } from 'drizzle-orm/mysql2';
 import mysql from 'mysql2/promise';
 import { subscriptionPlans } from '../shared/schema';
 import { eq } from 'drizzle-orm';
+import * as dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // Environment variables
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -41,6 +45,7 @@ interface SubscriptionPlanSeed {
   priceUsd: number;
   avatarLimit: number;
   tryonQuota: number;
+  maxResolution: string;
   stripePriceId: string | null;
   features: string[];
 }
@@ -52,6 +57,7 @@ const SUBSCRIPTION_PLANS: SubscriptionPlanSeed[] = [
     priceUsd: 0,
     avatarLimit: 1,
     tryonQuota: 10,
+    maxResolution: 'sd',
     stripePriceId: null, // Free tier doesn't require Stripe
     features: [
       '1 custom avatar',
@@ -66,6 +72,7 @@ const SUBSCRIPTION_PLANS: SubscriptionPlanSeed[] = [
     priceUsd: 9.99,
     avatarLimit: 3,
     tryonQuota: 100,
+    maxResolution: 'hd',
     stripePriceId: STRIPE_STARTER_PRICE_ID,
     features: [
       '3 custom avatars',
@@ -81,6 +88,7 @@ const SUBSCRIPTION_PLANS: SubscriptionPlanSeed[] = [
     priceUsd: 29.99,
     avatarLimit: 10,
     tryonQuota: 500,
+    maxResolution: 'hd',
     stripePriceId: STRIPE_PRO_PRICE_ID,
     features: [
       '10 custom avatars',
@@ -98,6 +106,7 @@ const SUBSCRIPTION_PLANS: SubscriptionPlanSeed[] = [
     priceUsd: 99.99,
     avatarLimit: 9999, // "Unlimited" = very high limit
     tryonQuota: 9999,
+    maxResolution: '4k',
     stripePriceId: STRIPE_PREMIUM_PRICE_ID,
     features: [
       'Unlimited avatars',
@@ -168,9 +177,10 @@ async function seedSubscriptionPlans() {
             .update(subscriptionPlans)
             .set({
               name: plan.name,
-              priceUsd: plan.priceUsd,
+              price: Math.round(plan.priceUsd * 100), // Convert dollars to cents
               avatarLimit: plan.avatarLimit,
               tryonQuota: plan.tryonQuota,
+              maxResolution: plan.maxResolution,
               stripePriceId: plan.stripePriceId,
               features: JSON.stringify(plan.features),
             })
@@ -182,9 +192,10 @@ async function seedSubscriptionPlans() {
           await db.insert(subscriptionPlans).values({
             id: plan.id,
             name: plan.name,
-            priceUsd: plan.priceUsd,
+            price: Math.round(plan.priceUsd * 100), // Convert dollars to cents
             avatarLimit: plan.avatarLimit,
             tryonQuota: plan.tryonQuota,
+            maxResolution: plan.maxResolution,
             stripePriceId: plan.stripePriceId,
             features: JSON.stringify(plan.features),
           });

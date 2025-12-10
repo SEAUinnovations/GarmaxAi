@@ -1,5 +1,6 @@
 import type { Server } from "node:http";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { logger } from "./utils/winston-logger";
 
@@ -10,6 +11,31 @@ declare module "http" {
     rawBody?: unknown;
   }
 }
+
+// Middleware: CORS - Allow frontend origins
+const allowedOrigins = [
+  'http://localhost:5000',
+  'http://localhost:5001',
+  'http://localhost:5002',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      logger.warn(`CORS blocked origin: ${origin}`, 'CORS');
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Middleware: Parse JSON with raw body preservation
 app.use(express.json({

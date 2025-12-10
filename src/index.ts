@@ -1,7 +1,18 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import fs from "node:fs";
 import { type Server } from "node:http";
 import path from "node:path";
+
+// Load environment variables - prioritize .env.local over .env
+if (fs.existsSync('.env.local')) {
+  const result = dotenv.config({ path: '.env.local' });
+  console.log('[dotenv] Loaded .env.local');
+  console.log('[dotenv] COGNITO_USER_POOL_ID:', process.env.COGNITO_USER_POOL_ID);
+  console.log('[dotenv] COGNITO_CLIENT_ID:', process.env.COGNITO_CLIENT_ID);
+} else {
+  dotenv.config();
+  console.log('[dotenv] Loaded .env');
+}
 
 import type { Express } from "express";
 import { nanoid } from "nanoid";

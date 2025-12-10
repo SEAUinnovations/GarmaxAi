@@ -46,6 +46,12 @@ export class StorageFactory {
   }
 
   private static async buildRDSConnectionString(): Promise<string | null> {
+    // Check for local development DATABASE_URL first
+    if (process.env.DATABASE_URL) {
+      logger.info('Using DATABASE_URL from environment', 'StorageFactory');
+      return process.env.DATABASE_URL;
+    }
+
     // Check if we have RDS endpoint from environment (set by CDK)
     const host = process.env.RDS_ENDPOINT;
     const secretArn = process.env.DATABASE_SECRET_ARN;

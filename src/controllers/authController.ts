@@ -23,8 +23,9 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5001';
 
 const cognitoClient = new CognitoIdentityProviderClient({ region: REGION });
 
+// Warn if Cognito is not configured (don't throw, allow other auth methods)
 if (!USER_POOL_ID || !CLIENT_ID) {
-  throw new Error('Cognito configuration missing. Please set COGNITO_USER_POOL_ID and COGNITO_CLIENT_ID environment variables.');
+  console.warn('[authController] Cognito configuration missing. OAuth sign-in will not be available. Set COGNITO_USER_POOL_ID and COGNITO_CLIENT_ID to enable.');
 }
 
 /**
