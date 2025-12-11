@@ -44,7 +44,7 @@ router.get('/plans', async (req: Request, res: Response) => {
       })),
     });
   } catch (error: any) {
-    logger.error(\`Failed to fetch subscription plans: \${error.message}\`, 'subscriptionsRouter');
+    logger.error(`Failed to fetch subscription plans: ${error.message}`, 'subscriptionsRouter');
     res.status(500).json({ error: 'Failed to fetch subscription plans' });
   }
 });
@@ -67,7 +67,7 @@ router.get('/current', authenticateToken, async (req: AuthRequest, res: Response
       isActive: subscriptionInfo.isActive,
     });
   } catch (error: any) {
-    logger.error(\`Failed to fetch subscription: \${error.message}\`, 'subscriptionsRouter');
+    logger.error(`Failed to fetch subscription: ${error.message}`, 'subscriptionsRouter');
     res.status(500).json({ error: 'Failed to fetch subscription' });
   }
 });
@@ -108,11 +108,11 @@ router.post('/create-checkout', authenticateToken, async (req: AuthRequest, res:
 
     let priceId = plan.stripePriceId;
     if (billingCycle === 'annual') {
-      const annualPriceId = process.env[\`STRIPE_\${planId.toUpperCase()}_ANNUAL_PRICE_ID\`];
+      const annualPriceId = process.env[`STRIPE_${planId.toUpperCase()}_ANNUAL_PRICE_ID`];
       if (annualPriceId) {
         priceId = annualPriceId;
       } else {
-        logger.warn(\`No annual price ID found for plan \${planId}, using monthly\`, 'subscriptionsRouter');
+        logger.warn(`No annual price ID found for plan ${planId}, using monthly`, 'subscriptionsRouter');
       }
     }
 
@@ -121,15 +121,15 @@ router.post('/create-checkout', authenticateToken, async (req: AuthRequest, res:
       client_reference_id: userId,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
-      success_url: \`\${FRONTEND_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}\`,
-      cancel_url: \`\${FRONTEND_URL}/pricing?canceled=true\`,
+      success_url: `${FRONTEND_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${FRONTEND_URL}/pricing?canceled=true`,
       metadata: { userId, planId, billingCycle },
     });
 
-    logger.info(\`Created checkout session \${session.id} for user \${userId}, plan \${planId}\`, 'subscriptionsRouter');
+    logger.info(`Created checkout session ${session.id} for user ${userId}, plan ${planId}`, 'subscriptionsRouter');
     res.json({ sessionId: session.id, url: session.url });
   } catch (error: any) {
-    logger.error(\`Failed to create checkout session: \${error.message}\`, 'subscriptionsRouter');
+    logger.error(`Failed to create checkout session: ${error.message}`, 'subscriptionsRouter');
     res.status(500).json({ error: 'Failed to create checkout session' });
   }
 });
@@ -150,13 +150,13 @@ router.post('/portal', authenticateToken, async (req: AuthRequest, res: Response
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: subscription.subscription.stripeCustomerId,
-      return_url: \`\${FRONTEND_URL}/account\`,
+      return_url: `${FRONTEND_URL}/account`,
     });
 
-    logger.info(\`Created billing portal session for user \${userId}\`, 'subscriptionsRouter');
+    logger.info(`Created billing portal session for user ${userId}`, 'subscriptionsRouter');
     res.json({ url: portalSession.url });
   } catch (error: any) {
-    logger.error(\`Failed to create portal session: \${error.message}\`, 'subscriptionsRouter');
+    logger.error(`Failed to create portal session: ${error.message}`, 'subscriptionsRouter');
     res.status(500).json({ error: 'Failed to create billing portal session' });
   }
 });
@@ -179,13 +179,13 @@ router.post('/cancel', authenticateToken, async (req: AuthRequest, res: Response
       cancel_at_period_end: true,
     });
 
-    logger.info(\`Scheduled cancellation for subscription \${subscriptionData.subscription.stripeSubscriptionId}, user \${userId}\`, 'subscriptionsRouter');
+    logger.info(`Scheduled cancellation for subscription ${subscriptionData.subscription.stripeSubscriptionId}, user ${userId}`, 'subscriptionsRouter');
     res.json({
       message: 'Subscription will be cancelled at the end of the billing period',
       periodEnd: subscriptionData.subscription.currentPeriodEnd,
     });
   } catch (error: any) {
-    logger.error(\`Failed to cancel subscription: \${error.message}\`, 'subscriptionsRouter');
+    logger.error(`Failed to cancel subscription: ${error.message}`, 'subscriptionsRouter');
     res.status(500).json({ error: 'Failed to cancel subscription' });
   }
 });

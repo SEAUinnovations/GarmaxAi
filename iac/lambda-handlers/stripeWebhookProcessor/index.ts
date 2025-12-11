@@ -2,8 +2,46 @@ import { Handler } from 'aws-lambda';
 import Stripe from 'stripe';
 import { drizzle } from 'drizzle-orm/mysql2';
 import mysql from 'mysql2/promise';
-import { users, paymentTransactions, creditPurchases } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import { mysqlTable, varchar, int, timestamp, decimal, text } from 'drizzle-orm/mysql-core';
+
+// Define only the tables we need for this Lambda
+const users = mysqlTable('users', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  credits: int('credits').notNull(),
+  creditsRemaining: int('credits_remaining').notNull(),
+  subscriptionTier: varchar('subscription_tier', { length: 20 }).notNull(),
+});
+
+const paymentTransactions = mysqlTable('payment_transactions', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  type: varchar('type', { length: 20 }).notNull(),
+  amount: decimal('amount', { precision: 10, scale: 2 }),
+  creditsAmount: int('credits_amount'),
+  stripePaymentId: varchar('stripe_payment_id', { length: 255 }),
+  status: varchar('status', { length: 20 }).notNull(),
+  createdAt: timestamp('created_at').notNull(),
+});
+
+const creditPurchases = mysqlTable('credit_purchases', {
+  id: int('id').primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  creditsPurchased: int('credits_purchased').notNull(),
+  bonusCredits: int('bonus_credits').notNull().default(0),
+  amountPaid: decimal('amount_paid', { precision: 10, scale: 2 }).notNull(),
+  stripeSessionId: varchar('stripe_session_id', { length: 255 }),
+  createdAt: timestamp('created_at').notNull(),
+});
+
+const subscriptions = mysqlTable('subscriptions', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  userId: varchar('user_id', { length: 36 }).notNull(),
+  planId: varchar('plan_id', { length: 36 }).notNull(),
+  status: varchar('status', { length: 20 }).notNull(),
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+});
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-11-17.clover',
@@ -206,7 +244,16 @@ async function handleSubscriptionDeleted(db: any, subscription: Stripe.Subscript
  */
 async function handlePaymentFailed(db: any, invoice: Stripe.Invoice) {
   const customerId = invoice.customer as string;
-  const subscriptionId = invoice.subscription as string;
+  // Invoice.subscription can be a string (ID) or expanded Subscription object
+  const subscriptionData = (invoice as any).subscription;
+  const subscriptionId = typeof subscriptionData === 'string' 
+    ? subscriptionData 
+    : subscriptionData?.id;
+  
+  if (!subscriptionId) {
+    console.warn('No subscription ID found for failed payment');
+    return;
+  }
   
   console.log(`Payment failed for subscription ${subscriptionId}`);
   
