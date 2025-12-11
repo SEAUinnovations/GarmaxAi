@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/mysql2';
-import { eq, and, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, desc, asc, sql, gte, lte } from 'drizzle-orm';
 import mysql from 'mysql2/promise';
 import { randomUUID } from 'crypto';
 import {
@@ -13,6 +13,13 @@ import {
   userPhotos,
   garmentItems,
   virtualWardrobe,
+  organizations,
+  organizationMembers,
+  apiKeys,
+  apiKeyUsage,
+  externalCustomers,
+  cartTryonSessions,
+  webhookConfigurations,
   type User,
   type Generation,
   type InsertUser,
@@ -25,7 +32,21 @@ import {
   type InsertUserPhoto,
   type GarmentItem,
   type InsertGarmentItem,
-  type VirtualWardrobe
+  type VirtualWardrobe,
+  type Organization,
+  type InsertOrganization,
+  type OrganizationMember,
+  type InsertOrganizationMember,
+  type ApiKey,
+  type InsertApiKey,
+  type ApiKeyUsage,
+  type InsertApiKeyUsage,
+  type ExternalCustomer,
+  type InsertExternalCustomer,
+  type CartTryonSession,
+  type InsertCartTryonSession,
+  type WebhookConfiguration,
+  type InsertWebhookConfiguration
 } from '@shared/schema';
 import { type IStorage } from '../storage';
 import { type TempUser } from '../types/index';
@@ -832,6 +853,462 @@ export class RDSStorage implements IStorage {
       return result.length > 0 ? result[0] : undefined;
     } catch (error) {
       logger.error(`Error getting active subscription: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // ENTERPRISE API METHODS
+  // ============================================================================
+
+  // Organization Methods
+  async getOrganization(orgId: string): Promise<Organization | undefined> {
+    try {
+      const result = await this._db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
+      return result[0] as Organization | undefined;
+    } catch (error) {
+      logger.error(`Error getting organization ${orgId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
+    try {
+      const result = await this._db.select().from(organizations).where(eq(organizations.slug, slug)).limit(1);
+      return result[0] as Organization | undefined;
+    } catch (error) {
+      logger.error(`Error getting organization by slug ${slug}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async createOrganization(data: InsertOrganization): Promise<Organization> {
+    try {
+      const id = randomUUID();
+      await this._db.insert(organizations).values({ ...data, id });
+      const result = await this.getOrganization(id);
+      if (!result) throw new Error('Failed to create organization');
+      return result;
+    } catch (error) {
+      logger.error(`Error creating organization: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async updateOrganization(orgId: string, data: Partial<Organization>): Promise<Organization> {
+    try {
+      await this._db.update(organizations).set(data).where(eq(organizations.id, orgId));
+      const result = await this.getOrganization(orgId);
+      if (!result) throw new Error('Organization not found after update');
+      return result;
+    } catch (error) {
+      logger.error(`Error updating organization ${orgId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async getUserOrganizations(userId: string): Promise<Organization[]> {
+    try {
+      const result = await this._db.select({
+        organization: organizations
+      })
+        .from(organizationMembers)
+        .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
+        .where(eq(organizationMembers.userId, userId));
+      
+      return result.map(r => r.organization) as Organization[];
+    } catch (error) {
+      logger.error(`Error getting user organizations for ${userId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async addOrganizationCredits(orgId: string, amount: number): Promise<Organization> {
+    try {
+      await this._db.update(organizations)
+        .set({ credits: sql`${organizations.credits} + ${amount}` })
+        .where(eq(organizations.id, orgId));
+      const result = await this.getOrganization(orgId);
+      if (!result) throw new Error('Organization not found after adding credits');
+      return result;
+    } catch (error) {
+      logger.error(`Error adding credits to organization ${orgId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async deductOrganizationCredits(orgId: string, amount: number): Promise<Organization> {
+    try {
+      const result = await this._db.update(organizations)
+        .set({ credits: sql`${organizations.credits} - ${amount}` })
+        .where(and(
+          eq(organizations.id, orgId),
+          gte(organizations.credits, amount)
+        ));
+      
+      if (!result || result[0]?.affectedRows === 0) {
+        throw new Error('INSUFFICIENT_CREDITS');
+      }
+      
+      const org = await this.getOrganization(orgId);
+      if (!org) throw new Error('Organization not found after deducting credits');
+      return org;
+    } catch (error) {
+      logger.error(`Error deducting credits from organization ${orgId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  // Organization Member Methods
+  async getOrganizationMember(orgId: string, userId: string): Promise<OrganizationMember | undefined> {
+    try {
+      const result = await this._db.select().from(organizationMembers)
+        .where(and(
+          eq(organizationMembers.organizationId, orgId),
+          eq(organizationMembers.userId, userId)
+        ))
+        .limit(1);
+      return result[0] as OrganizationMember | undefined;
+    } catch (error) {
+      logger.error(`Error getting organization member: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async addOrganizationMember(data: InsertOrganizationMember): Promise<OrganizationMember> {
+    try {
+      const id = randomUUID();
+      await this._db.insert(organizationMembers).values({ ...data, id });
+      const result = await this.getOrganizationMember(data.organizationId, data.userId);
+      if (!result) throw new Error('Failed to add organization member');
+      return result;
+    } catch (error) {
+      logger.error(`Error adding organization member: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async listOrganizationMembers(orgId: string): Promise<OrganizationMember[]> {
+    try {
+      const result = await this._db.select().from(organizationMembers)
+        .where(eq(organizationMembers.organizationId, orgId));
+      return result as OrganizationMember[];
+    } catch (error) {
+      logger.error(`Error listing organization members: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  // API Key Methods
+  async createApiKey(data: InsertApiKey): Promise<ApiKey> {
+    try {
+      const id = randomUUID();
+      await this._db.insert(apiKeys).values({ ...data, id });
+      const result = await this.getApiKey(id);
+      if (!result) throw new Error('Failed to create API key');
+      return result;
+    } catch (error) {
+      logger.error(`Error creating API key: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async getApiKey(keyId: string): Promise<ApiKey | undefined> {
+    try {
+      const result = await this._db.select().from(apiKeys).where(eq(apiKeys.id, keyId)).limit(1);
+      return result[0] as ApiKey | undefined;
+    } catch (error) {
+      logger.error(`Error getting API key ${keyId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async getApiKeyByPrefix(prefix: string): Promise<ApiKey | undefined> {
+    try {
+      const result = await this._db.select().from(apiKeys)
+        .where(and(
+          eq(apiKeys.keyPrefix, prefix),
+          eq(apiKeys.status, 'active')
+        ))
+        .limit(1);
+      return result[0] as ApiKey | undefined;
+    } catch (error) {
+      logger.error(`Error getting API key by prefix: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async listOrganizationApiKeys(orgId: string): Promise<ApiKey[]> {
+    try {
+      const result = await this._db.select().from(apiKeys)
+        .where(eq(apiKeys.organizationId, orgId))
+        .orderBy(desc(apiKeys.createdAt));
+      return result as ApiKey[];
+    } catch (error) {
+      logger.error(`Error listing organization API keys: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async updateApiKey(keyId: string, data: Partial<ApiKey>): Promise<ApiKey> {
+    try {
+      await this._db.update(apiKeys).set(data).where(eq(apiKeys.id, keyId));
+      const result = await this.getApiKey(keyId);
+      if (!result) throw new Error('API key not found after update');
+      return result;
+    } catch (error) {
+      logger.error(`Error updating API key ${keyId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async revokeApiKey(keyId: string, userId: string, reason: string): Promise<ApiKey> {
+    try {
+      const now = new Date();
+      await this._db.update(apiKeys)
+        .set({
+          status: 'revoked',
+          revokedAt: now,
+          revokedBy: userId,
+          revokedReason: reason
+        })
+        .where(eq(apiKeys.id, keyId));
+      const result = await this.getApiKey(keyId);
+      if (!result) throw new Error('API key not found after revocation');
+      return result;
+    } catch (error) {
+      logger.error(`Error revoking API key ${keyId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  // External Customer Methods
+  async createExternalCustomer(data: InsertExternalCustomer): Promise<ExternalCustomer> {
+    try {
+      const id = randomUUID();
+      await this._db.insert(externalCustomers).values({ ...data, id });
+      const result = await this.getExternalCustomer(data.organizationId, data.externalCustomerId);
+      if (!result) throw new Error('Failed to create external customer');
+      return result;
+    } catch (error) {
+      logger.error(`Error creating external customer: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async getExternalCustomer(orgId: string, externalCustomerId: string): Promise<ExternalCustomer | undefined> {
+    try {
+      const result = await this._db.select().from(externalCustomers)
+        .where(and(
+          eq(externalCustomers.organizationId, orgId),
+          eq(externalCustomers.externalCustomerId, externalCustomerId)
+        ))
+        .limit(1);
+      return result[0] as ExternalCustomer | undefined;
+    } catch (error) {
+      logger.error(`Error getting external customer: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async updateExternalCustomer(id: string, data: Partial<ExternalCustomer>): Promise<ExternalCustomer> {
+    try {
+      await this._db.update(externalCustomers).set(data).where(eq(externalCustomers.id, id));
+      const result = await this._db.select().from(externalCustomers).where(eq(externalCustomers.id, id)).limit(1);
+      if (!result[0]) throw new Error('External customer not found after update');
+      return result[0] as ExternalCustomer;
+    } catch (error) {
+      logger.error(`Error updating external customer ${id}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async listExternalCustomers(orgId: string, limit: number = 50, offset: number = 0): Promise<ExternalCustomer[]> {
+    try {
+      const results = await this._db
+        .select()
+        .from(externalCustomers)
+        .where(eq(externalCustomers.organizationId, orgId))
+        .limit(limit)
+        .offset(offset)
+        .orderBy(desc(externalCustomers.createdAt));
+      return results as ExternalCustomer[];
+    } catch (error) {
+      logger.error(`Error listing external customers for org ${orgId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async deleteExternalCustomer(id: string): Promise<void> {
+    try {
+      await this._db.delete(externalCustomers).where(eq(externalCustomers.id, id));
+    } catch (error) {
+      logger.error(`Error deleting external customer ${id}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  // Cart Try-On Session Methods
+  async createCartTryonSession(data: InsertCartTryonSession): Promise<CartTryonSession> {
+    try {
+      const id = randomUUID();
+      await this._db.insert(cartTryonSessions).values({ ...data, id });
+      const result = await this.getCartTryonSession(id);
+      if (!result) throw new Error('Failed to create cart try-on session');
+      return result;
+    } catch (error) {
+      logger.error(`Error creating cart try-on session: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async getCartTryonSession(sessionId: string): Promise<CartTryonSession | undefined> {
+    try {
+      const result = await this._db.select().from(cartTryonSessions)
+        .where(eq(cartTryonSessions.id, sessionId))
+        .limit(1);
+      return result[0] as CartTryonSession | undefined;
+    } catch (error) {
+      logger.error(`Error getting cart try-on session ${sessionId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async listCartTryonSessions(orgId: string, filters: any = {}, pagination: any = {}): Promise<CartTryonSession[]> {
+    try {
+      const { page = 1, limit = 50 } = pagination;
+      const offset = (page - 1) * limit;
+      
+      let query = this._db.select().from(cartTryonSessions)
+        .where(eq(cartTryonSessions.organizationId, orgId))
+        .orderBy(desc(cartTryonSessions.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      return await query as CartTryonSession[];
+    } catch (error) {
+      logger.error(`Error listing cart try-on sessions: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async updateCartTryonSession(sessionId: string, data: Partial<CartTryonSession>): Promise<CartTryonSession> {
+    try {
+      await this._db.update(cartTryonSessions).set(data).where(eq(cartTryonSessions.id, sessionId));
+      const result = await this.getCartTryonSession(sessionId);
+      if (!result) throw new Error('Cart try-on session not found after update');
+      return result;
+    } catch (error) {
+      logger.error(`Error updating cart try-on session ${sessionId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  // Webhook Configuration Methods
+  async createWebhook(data: InsertWebhookConfiguration): Promise<WebhookConfiguration> {
+    try {
+      const id = randomUUID();
+      await this._db.insert(webhookConfigurations).values({ ...data, id });
+      const result = await this._db.select().from(webhookConfigurations)
+        .where(eq(webhookConfigurations.id, id))
+        .limit(1);
+      if (!result[0]) throw new Error('Failed to create webhook');
+      return result[0] as WebhookConfiguration;
+    } catch (error) {
+      logger.error(`Error creating webhook: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async listWebhooks(orgId: string): Promise<WebhookConfiguration[]> {
+    try {
+      const result = await this._db.select().from(webhookConfigurations)
+        .where(eq(webhookConfigurations.organizationId, orgId))
+        .orderBy(desc(webhookConfigurations.createdAt));
+      return result as WebhookConfiguration[];
+    } catch (error) {
+      logger.error(`Error listing webhooks: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async updateWebhook(webhookId: string, data: Partial<WebhookConfiguration>): Promise<WebhookConfiguration> {
+    try {
+      await this._db.update(webhookConfigurations).set(data).where(eq(webhookConfigurations.id, webhookId));
+      const result = await this._db.select().from(webhookConfigurations)
+        .where(eq(webhookConfigurations.id, webhookId))
+        .limit(1);
+      if (!result[0]) throw new Error('Webhook not found after update');
+      return result[0] as WebhookConfiguration;
+    } catch (error) {
+      logger.error(`Error updating webhook ${webhookId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async deleteWebhook(webhookId: string): Promise<boolean> {
+    try {
+      await this._db.delete(webhookConfigurations).where(eq(webhookConfigurations.id, webhookId));
+      return true;
+    } catch (error) {
+      logger.error(`Error deleting webhook ${webhookId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  // API Key Usage Tracking Methods
+  async logApiKeyUsage(data: InsertApiKeyUsage): Promise<void> {
+    try {
+      const id = randomUUID();
+      await this._db.insert(apiKeyUsage).values({ ...data, id });
+    } catch (error) {
+      logger.error(`Error logging API key usage: ${error}`, 'RDSStorage');
+      // Don't throw - usage logging should not block requests
+    }
+  }
+
+  async getApiKeyUsageStats(keyId: string, startDate: Date, endDate: Date): Promise<any> {
+    try {
+      const result = await this._db.select({
+        totalRequests: sql<number>`COUNT(*)`,
+        successfulRequests: sql<number>`SUM(CASE WHEN ${apiKeyUsage.statusCode} >= 200 AND ${apiKeyUsage.statusCode} < 300 THEN 1 ELSE 0 END)`,
+        failedRequests: sql<number>`SUM(CASE WHEN ${apiKeyUsage.statusCode} >= 400 THEN 1 ELSE 0 END)`,
+        totalCreditsUsed: sql<number>`SUM(${apiKeyUsage.creditsUsed})`,
+        avgResponseTime: sql<number>`AVG(${apiKeyUsage.processingTimeMs})`
+      })
+        .from(apiKeyUsage)
+        .where(and(
+          eq(apiKeyUsage.apiKeyId, keyId),
+          gte(apiKeyUsage.timestamp, startDate),
+          lte(apiKeyUsage.timestamp, endDate)
+        ));
+      
+      return result[0];
+    } catch (error) {
+      logger.error(`Error getting API key usage stats: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async getOrganizationUsageStats(orgId: string, startDate: Date, endDate: Date): Promise<any> {
+    try {
+      const result = await this._db.select({
+        totalRequests: sql<number>`COUNT(*)`,
+        successfulRequests: sql<number>`SUM(CASE WHEN ${apiKeyUsage.statusCode} >= 200 AND ${apiKeyUsage.statusCode} < 300 THEN 1 ELSE 0 END)`,
+        failedRequests: sql<number>`SUM(CASE WHEN ${apiKeyUsage.statusCode} >= 400 THEN 1 ELSE 0 END)`,
+        totalCreditsUsed: sql<number>`SUM(${apiKeyUsage.creditsUsed})`,
+        avgResponseTime: sql<number>`AVG(${apiKeyUsage.processingTimeMs})`
+      })
+        .from(apiKeyUsage)
+        .where(and(
+          eq(apiKeyUsage.organizationId, orgId),
+          gte(apiKeyUsage.timestamp, startDate),
+          lte(apiKeyUsage.timestamp, endDate)
+        ));
+      
+      return result[0];
+    } catch (error) {
+      logger.error(`Error getting organization usage stats: ${error}`, 'RDSStorage');
       throw error;
     }
   }

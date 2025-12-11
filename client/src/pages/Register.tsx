@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-// Use relative URL in production, localhost for development
-const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:3000/api' : '/api';
+// Use absolute backend URL in production to avoid CloudFront routing issues
+const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:3000/api' : 'https://be.garmaxai.com/api';
 
 export default function Register() {
   const [email, setEmail] = useState("");

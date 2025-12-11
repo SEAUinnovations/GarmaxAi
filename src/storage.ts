@@ -65,6 +65,52 @@ export interface IStorage {
   // Subscription methods
   getActiveSubscription(userId: string): Promise<any | undefined>;
   
+  // Enterprise API - Organization methods
+  getOrganization(orgId: string): Promise<any | undefined>;
+  getOrganizationBySlug(slug: string): Promise<any | undefined>;
+  createOrganization(data: any): Promise<any>;
+  updateOrganization(orgId: string, data: any): Promise<any>;
+  getUserOrganizations(userId: string): Promise<any[]>;
+  addOrganizationCredits(orgId: string, amount: number): Promise<any>;
+  deductOrganizationCredits(orgId: string, amount: number): Promise<any>;
+  
+  // Enterprise API - Organization member methods
+  getOrganizationMember(orgId: string, userId: string): Promise<any | undefined>;
+  addOrganizationMember(data: any): Promise<any>;
+  listOrganizationMembers(orgId: string): Promise<any[]>;
+  
+  // Enterprise API - API key methods
+  createApiKey(data: any): Promise<any>;
+  getApiKey(keyId: string): Promise<any | undefined>;
+  getApiKeyByPrefix(prefix: string): Promise<any | undefined>;
+  listOrganizationApiKeys(orgId: string): Promise<any[]>;
+  updateApiKey(keyId: string, data: any): Promise<any>;
+  revokeApiKey(keyId: string, userId: string, reason: string): Promise<any>;
+  
+  // Enterprise API - External customer methods
+  createExternalCustomer(data: any): Promise<any>;
+  getExternalCustomer(orgId: string, externalCustomerId: string): Promise<any | undefined>;
+  updateExternalCustomer(id: string, data: any): Promise<any>;
+  listExternalCustomers(orgId: string, limit: number, offset: number): Promise<any[]>;
+  deleteExternalCustomer(id: string): Promise<void>;
+  
+  // Enterprise API - Cart try-on session methods
+  createCartTryonSession(data: any): Promise<any>;
+  getCartTryonSession(sessionId: string): Promise<any | undefined>;
+  listCartTryonSessions(orgId: string, filters?: any, pagination?: any): Promise<any[]>;
+  updateCartTryonSession(sessionId: string, data: any): Promise<any>;
+  
+  // Enterprise API - Webhook methods
+  createWebhook(data: any): Promise<any>;
+  listWebhooks(orgId: string): Promise<any[]>;
+  updateWebhook(webhookId: string, data: any): Promise<any>;
+  deleteWebhook(webhookId: string): Promise<boolean>;
+  
+  // Enterprise API - Usage tracking methods
+  logApiKeyUsage(data: any): Promise<void>;
+  getApiKeyUsageStats(keyId: string, startDate: Date, endDate: Date): Promise<any>;
+  getOrganizationUsageStats(orgId: string, startDate: Date, endDate: Date): Promise<any>;
+  
   // Temp user methods for email verification
   createTempUser(data: {
     email: string;
@@ -158,4 +204,50 @@ export const storage = {
   
   // User methods
   updateUser: async (userId: string, data: Partial<any>) => (await StorageFactory.getStorage()).updateUser(userId, data),
+  
+  // Enterprise API - Organization methods
+  getOrganization: async (orgId: string) => (await StorageFactory.getStorage()).getOrganization(orgId),
+  getOrganizationBySlug: async (slug: string) => (await StorageFactory.getStorage()).getOrganizationBySlug(slug),
+  createOrganization: async (data: any) => (await StorageFactory.getStorage()).createOrganization(data),
+  updateOrganization: async (orgId: string, data: any) => (await StorageFactory.getStorage()).updateOrganization(orgId, data),
+  getUserOrganizations: async (userId: string) => (await StorageFactory.getStorage()).getUserOrganizations(userId),
+  addOrganizationCredits: async (orgId: string, amount: number) => (await StorageFactory.getStorage()).addOrganizationCredits(orgId, amount),
+  deductOrganizationCredits: async (orgId: string, amount: number) => (await StorageFactory.getStorage()).deductOrganizationCredits(orgId, amount),
+  
+  // Enterprise API - Organization member methods
+  getOrganizationMember: async (orgId: string, userId: string) => (await StorageFactory.getStorage()).getOrganizationMember(orgId, userId),
+  addOrganizationMember: async (data: any) => (await StorageFactory.getStorage()).addOrganizationMember(data),
+  listOrganizationMembers: async (orgId: string) => (await StorageFactory.getStorage()).listOrganizationMembers(orgId),
+  
+  // Enterprise API - API key methods
+  createApiKey: async (data: any) => (await StorageFactory.getStorage()).createApiKey(data),
+  getApiKey: async (keyId: string) => (await StorageFactory.getStorage()).getApiKey(keyId),
+  getApiKeyByPrefix: async (prefix: string) => (await StorageFactory.getStorage()).getApiKeyByPrefix(prefix),
+  listOrganizationApiKeys: async (orgId: string) => (await StorageFactory.getStorage()).listOrganizationApiKeys(orgId),
+  updateApiKey: async (keyId: string, data: any) => (await StorageFactory.getStorage()).updateApiKey(keyId, data),
+  revokeApiKey: async (keyId: string, userId: string, reason: string) => (await StorageFactory.getStorage()).revokeApiKey(keyId, userId, reason),
+  
+  // Enterprise API - External customer methods
+  createExternalCustomer: async (data: any) => (await StorageFactory.getStorage()).createExternalCustomer(data),
+  getExternalCustomer: async (orgId: string, externalCustomerId: string) => (await StorageFactory.getStorage()).getExternalCustomer(orgId, externalCustomerId),
+  updateExternalCustomer: async (id: string, data: any) => (await StorageFactory.getStorage()).updateExternalCustomer(id, data),
+  listExternalCustomers: async (orgId: string, limit: number, offset: number) => (await StorageFactory.getStorage()).listExternalCustomers(orgId, limit, offset),
+  deleteExternalCustomer: async (id: string) => (await StorageFactory.getStorage()).deleteExternalCustomer(id),
+  
+  // Enterprise API - Cart try-on session methods
+  createCartTryonSession: async (data: any) => (await StorageFactory.getStorage()).createCartTryonSession(data),
+  getCartTryonSession: async (sessionId: string) => (await StorageFactory.getStorage()).getCartTryonSession(sessionId),
+  listCartTryonSessions: async (orgId: string, filters?: any, pagination?: any) => (await StorageFactory.getStorage()).listCartTryonSessions(orgId, filters, pagination),
+  updateCartTryonSession: async (sessionId: string, data: any) => (await StorageFactory.getStorage()).updateCartTryonSession(sessionId, data),
+  
+  // Enterprise API - Webhook methods
+  createWebhook: async (data: any) => (await StorageFactory.getStorage()).createWebhook(data),
+  listWebhooks: async (orgId: string) => (await StorageFactory.getStorage()).listWebhooks(orgId),
+  updateWebhook: async (webhookId: string, data: any) => (await StorageFactory.getStorage()).updateWebhook(webhookId, data),
+  deleteWebhook: async (webhookId: string) => (await StorageFactory.getStorage()).deleteWebhook(webhookId),
+  
+  // Enterprise API - Usage tracking methods
+  logApiKeyUsage: async (data: any) => (await StorageFactory.getStorage()).logApiKeyUsage(data),
+  getApiKeyUsageStats: async (keyId: string, startDate: Date, endDate: Date) => (await StorageFactory.getStorage()).getApiKeyUsageStats(keyId, startDate, endDate),
+  getOrganizationUsageStats: async (orgId: string, startDate: Date, endDate: Date) => (await StorageFactory.getStorage()).getOrganizationUsageStats(orgId, startDate, endDate),
 };

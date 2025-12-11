@@ -17,6 +17,10 @@ import { initializeTryonWebSocket } from "./websocket/tryonWebSocket";
 import paymentsRouter from "./routers/paymentsRouter";
 import { healthRouter } from "./routers/healthRouter";
 import analyticsRouter from "./routers/analyticsRouter";
+import organizationsRouter from "./routers/organizationsRouter";
+import apiKeysRouter from "./routers/apiKeysRouter";
+import externalCustomersRouter from "./routers/externalCustomersRouter";
+import enterprisePhotosRouter from "./routers/enterprisePhotosRouter";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Middleware
@@ -35,6 +39,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/tryon/garment", garmentRouter);
   app.use("/api", paymentsRouter);
   app.use("/api/analytics", requireAuth, analyticsRouter);
+  
+  // Enterprise API routes
+  app.use("/api/organizations", organizationsRouter);
+  app.use("/api/organizations/:orgId/api-keys", apiKeysRouter);
+  
+  // Enterprise API v1 routes (API key authenticated)
+  app.use("/api/v1/customers", externalCustomersRouter);
+  app.use("/api/v1/photos", enterprisePhotosRouter);
   
   // Health checks
   app.use("/api/health", healthRouter);

@@ -30,8 +30,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Use relative URL in production, localhost for development
-const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:3000/api' : '/api';
+// Use absolute backend URL in production to avoid CloudFront routing issues
+const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:3000/api' : 'https://be.garmaxai.com/api';
 
 interface AuthProviderProps {
   children: ReactNode;
