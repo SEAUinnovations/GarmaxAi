@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,11 +14,68 @@ import {
   Plus,
   TrendingUp,
   Download,
+  LogOut,
+  User,
+  Mail,
+  Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProfileEditSection } from "@/components/ProfileEditSection";
 
+interface UserData {
+  id: string;
+  email: string;
+  username?: string;
+  emailVerified: boolean;
+  creditsRemaining: number;
+  isTrial: boolean;
+  trialEndsAt?: string;
+}
+
 export default function Account() {
+  const [, setLocation] = useLocation();
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem('id_token');
+        if (!token) {
+          setLocation('/login');
+          return;
+        }
+
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUserData(data);
+        } else {
+          console.error('Failed to fetch user data');
+          setLocation('/login');
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+
+    fetchUserData();
+  }, [setLocation]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('id_token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    setLocation('/login');
+  };
+
   const [subscription] = useState({
     plan: "Studio",
     status: "active",
@@ -29,7 +86,7 @@ export default function Account() {
   });
 
   const [credits] = useState({
-    balance: 45,
+    balance: userData?.creditsRemaining || 0,
     monthlyQuota: 25,
     used: 7,
   });
@@ -135,6 +192,88 @@ export default function Account() {
             
             {/* Profile Section */}
             <ProfileEditSection />
+
+            {/* User Information Card */}
+            <Card className="border-white/10 bg-card">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <User className="w-6 h-6 text-accent" />
+                    <div>
+                      <CardTitle>Account Information</CardTitle>
+                      <CardDescription>Your account details and status</CardDescription>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="flex items-center gap-2"
+                  >
+                    <LogOut size={16} />
+                    Logout
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingUser ? (
+                  <div className="text-muted-foreground">Loading account information...</div>
+                ) : userData ? (
+                  <>
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-background/50">
+                      <Mail className="w-5 h-5 text-muted-foreground" />
+                      <div className="flex-1">
+                        <div className="text-sm text-muted-foreground">Email</div>
+                        <div className="font-medium">{userData.email}</div>
+                      </div>
+                      {userData.emailVerified && (
+                        <Badge variant="default" className="bg-green-500/20 text-green-400">
+                          Verified
+                        </Badge>
+                      )}
+                    </div>
+
+                    {userData.username && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-background/50">
+                        <User className="w-5 h-5 text-muted-foreground" />
+                        <div className="flex-1">
+                          <div className="text-sm text-muted-foreground">Username</div>
+                          <div className="font-medium">{userData.username}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-background/50">
+                      <Coins className="w-5 h-5 text-accent" />
+                      <div className="flex-1">
+                        <div className="text-sm text-muted-foreground">Credits Remaining</div>
+                        <div className="font-medium text-lg">{userData.creditsRemaining}</div>
+                      </div>
+                      {userData.isTrial && (
+                        <Badge variant="secondary" className="bg-accent/20 text-accent">
+                          Trial Account
+                        </Badge>
+                      )}
+                    </div>
+
+                    {userData.isTrial && userData.trialEndsAt && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-accent/10 border border-accent/20">
+                        <Calendar className="w-5 h-5 text-accent" />
+                        <div className="flex-1">
+                          <div className="text-sm text-muted-foreground">Trial Period</div>
+                          <div className="font-medium">
+                            Ends {new Date(userData.trialEndsAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-muted-foreground">Failed to load account information</div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Subscription Card */}
             <Card className="border-white/10 bg-card">
               <CardHeader>
