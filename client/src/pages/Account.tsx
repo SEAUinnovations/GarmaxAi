@@ -36,6 +36,7 @@ export default function Account() {
   const [, setLocation] = useLocation();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [isLoadingPortal, setIsLoadingPortal] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -157,6 +158,33 @@ export default function Account() {
   const handleCancelSubscription = () => {
     // TODO: Implement cancellation
     console.log("Cancel subscription");
+  };
+
+  const handleManageBilling = async () => {
+    setIsLoadingPortal(true);
+    try {
+      const token = localStorage.getItem('id_token');
+      const response = await fetch('/api/subscriptions/portal', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const { url } = await response.json();
+        window.location.href = url;
+      } else {
+        console.error('Failed to create portal session');
+        alert('Failed to open billing portal. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error creating portal session:', error);
+      alert('An error occurred. Please try again.');
+    } finally {
+      setIsLoadingPortal(false);
+    }
   };
 
   const handleDeleteAvatar = (avatarId: string) => {
@@ -314,6 +342,14 @@ export default function Account() {
                 </div>
 
                 <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleManageBilling}
+                    disabled={isLoadingPortal}
+                  >
+                    {isLoadingPortal ? "Loading..." : "Manage Billing"}
+                  </Button>
                   <Link href="/pricing" className="flex-1">
                     <Button variant="outline" className="w-full">
                       Change Plan
