@@ -155,6 +155,15 @@ async function findOrCreateUserFromCognito(cognitoUser: {
 export async function initiateGoogleLogin(req: Request, res: Response) {
   try {
     if (!COGNITO_DOMAIN || !CLIENT_ID) {
+      logger.error(
+        `Missing Cognito configuration for Google login: hasCognitoDomain=${!!COGNITO_DOMAIN}, hasClientId=${!!CLIENT_ID}`,
+        'AuthController'
+      );
+      return res.status(500).json({ message: 'Server configuration error' });
+    }
+
+    if (!process.env.FRONTEND_URL) {
+      logger.error('Missing FRONTEND_URL configuration', 'AuthController');
       return res.status(500).json({ message: 'Server configuration error' });
     }
 

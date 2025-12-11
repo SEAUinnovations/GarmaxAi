@@ -410,6 +410,8 @@ export class BackendStack extends cdk.Stack {
     pythonLambda.addEnvironment('COGNITO_USER_POOL_ID', this.userPool.userPoolId);
     pythonLambda.addEnvironment('COGNITO_CLIENT_ID', this.userPoolClient.userPoolClientId);
     pythonLambda.addEnvironment('COGNITO_IDENTITY_POOL_ID', this.identityPool.ref);
+    pythonLambda.addEnvironment('COGNITO_DOMAIN', this.cognitoDomain.domainName);
+    pythonLambda.addEnvironment('FRONTEND_URL', `https://${props.envConfig.frontendDomainName}`);
     
     // Try-On Processor environment
     tryonProcessor.addEnvironment('UPLOADS_BUCKET_NAME', props.uploadsBucket.bucketName);
