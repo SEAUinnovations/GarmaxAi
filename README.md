@@ -45,6 +45,7 @@
 - [Rendering Pipeline](#-rendering-pipeline)
 - [Storage & Security](#-storage--security)
 - [Cost Management](#-cost-management)
+- [Enterprise API](#-enterprise-api)
 - [Tech Stack](#-tech-stack)
 - [Infrastructure (IaC)](#-infrastructure-iac)
 - [Installation](#-installation)
@@ -261,6 +262,81 @@ guidance_assets = self._generate_guidance_assets(mesh_results)
 - **Per-user quotas**: Prevent individual users from excessive resource consumption
 - **Provider failover gates**: Bedrock rendering disabled by default (cost protection)
 - **CloudWatch alarms**: Alert on unusual spending patterns or quota breaches
+
+---
+
+## 🏢 Enterprise API
+
+GarmaxAI provides a comprehensive Enterprise API for programmatic access to virtual try-on capabilities. Perfect for e-commerce platforms, fashion retailers, and integrators.
+
+### Key Features
+
+- **API Key Authentication**: Secure programmatic access with scoped permissions
+- **Cart Try-On Pipeline**: Process multiple garments in a single batch (up to 20 items)
+- **Webhook System**: Real-time notifications for async operations
+- **Credit System**: Transparent pricing with volume discounts
+- **Rate Limiting**: Configurable limits per API key
+- **External Customer Management**: Map your users to our system
+- **Photo Upload & Storage**: Secure S3-backed photo management
+
+### Quick Start
+
+```bash
+# Create organization (requires JWT auth)
+curl -X POST https://api.garmaxai.com/api/organizations \
+  -H "Authorization: Bearer <jwt>" \
+  -d '{"name":"Acme Fashion","billingEmail":"billing@acme.com"}'
+
+# Generate API key
+curl -X POST https://api.garmaxai.com/api/organizations/{orgId}/api-keys \
+  -H "Authorization: Bearer <jwt>" \
+  -d '{"name":"Production Key","scopes":["tryon:create","tryon:read"]}'
+
+# Create cart try-on session
+curl -X POST https://api.garmaxai.com/api/v1/cart-tryons \
+  -H "X-API-Key: gx_live_..." \
+  -d '{
+    "cartId": "cart_123",
+    "customerPhotoS3Key": "enterprise/org-abc/photos/customer.jpg",
+    "cartItems": [
+      {
+        "productId": "prod_001",
+        "name": "Blue T-Shirt",
+        "imageUrl": "https://shop.com/tshirt.jpg",
+        "category": "tops",
+        "quantity": 1,
+        "price": 29.99,
+        "currency": "USD"
+      }
+    ],
+    "renderQuality": "hd"
+  }'
+```
+
+### Documentation
+
+📚 **[Complete Enterprise API Documentation](ENTERPRISE_API.md)**
+
+Includes:
+- 26+ API endpoints with examples
+- Authentication & rate limiting
+- Credit system & pricing
+- Webhook integration guide
+- Code examples (Node.js, Python, PHP)
+- Error handling & best practices
+
+### API Endpoints Overview
+
+| Resource | Endpoints | Authentication |
+|----------|-----------|----------------|
+| Organizations | 4 endpoints | JWT (User Session) |
+| API Keys | 3 endpoints | JWT (User Session) |
+| External Customers | 4 endpoints | API Key |
+| Customer Photos | 2 endpoints | API Key |
+| Cart Try-Ons | 4 endpoints | API Key |
+| Webhooks | 6 endpoints | API Key |
+
+---
 
 ## 🛠 Tech Stack
 

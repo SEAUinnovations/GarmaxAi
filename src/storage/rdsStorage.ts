@@ -1232,6 +1232,18 @@ export class RDSStorage implements IStorage {
     }
   }
 
+  async getWebhook(webhookId: string): Promise<WebhookConfiguration | undefined> {
+    try {
+      const result = await this._db.select().from(webhookConfigurations)
+        .where(eq(webhookConfigurations.id, webhookId))
+        .limit(1);
+      return result[0] as WebhookConfiguration | undefined;
+    } catch (error) {
+      logger.error(`Error getting webhook ${webhookId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
   async updateWebhook(webhookId: string, data: Partial<WebhookConfiguration>): Promise<WebhookConfiguration> {
     try {
       await this._db.update(webhookConfigurations).set(data).where(eq(webhookConfigurations.id, webhookId));

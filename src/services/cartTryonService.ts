@@ -91,8 +91,7 @@ export async function createCartTryonSession(
       // Refund credits if customer not found
       await organizationService.addCredits(
         data.organizationId,
-        creditsNeeded,
-        'Refund for failed cart try-on session'
+        creditsNeeded
       );
       throw new Error('Customer not found');
     }
@@ -102,7 +101,16 @@ export async function createCartTryonSession(
       organizationId: data.organizationId,
       externalCustomerId: customer.id,
       cartId: data.cartId,
-      cartItems: data.cartItems,
+      cartItems: data.cartItems.map(item => ({
+        productId: item.productId,
+        variantId: item.variantId || '',
+        name: item.productName,
+        imageUrl: item.productImageUrl,
+        category: item.category || 'unknown',
+        quantity: 1,
+        price: 0,
+        currency: 'USD'
+      })),
       customerPhotoUrl: data.customerPhotoUrl,
       customerPhotoS3Key: data.customerPhotoS3Key,
       renderQuality,
@@ -240,8 +248,7 @@ export async function cancelCartTryonSession(
     if (session.creditsUsed > 0) {
       await organizationService.addCredits(
         organizationId,
-        session.creditsUsed,
-        `Refund for cancelled cart try-on session ${sessionId}`
+        session.creditsUsed
       );
     }
 

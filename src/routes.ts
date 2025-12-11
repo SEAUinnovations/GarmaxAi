@@ -21,6 +21,8 @@ import organizationsRouter from "./routers/organizationsRouter";
 import apiKeysRouter from "./routers/apiKeysRouter";
 import externalCustomersRouter from "./routers/externalCustomersRouter";
 import enterprisePhotosRouter from "./routers/enterprisePhotosRouter";
+import cartTryonRouter from "./routers/cartTryonRouter";
+import webhooksRouter from "./routers/webhooksRouter";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Middleware
@@ -43,10 +45,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enterprise API routes
   app.use("/api/organizations", organizationsRouter);
   app.use("/api/organizations/:orgId/api-keys", apiKeysRouter);
+  app.use("/api/organizations/:orgId/webhooks", webhooksRouter);
   
   // Enterprise API v1 routes (API key authenticated)
   app.use("/api/v1/customers", externalCustomersRouter);
   app.use("/api/v1/photos", enterprisePhotosRouter);
+  app.use("/api/v1/cart/tryon", cartTryonRouter);
   
   // Health checks
   app.use("/api/health", healthRouter);

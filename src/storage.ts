@@ -102,6 +102,7 @@ export interface IStorage {
   
   // Enterprise API - Webhook methods
   createWebhook(data: any): Promise<any>;
+  getWebhook(webhookId: string): Promise<any | undefined>;
   listWebhooks(orgId: string): Promise<any[]>;
   updateWebhook(webhookId: string, data: any): Promise<any>;
   deleteWebhook(webhookId: string): Promise<boolean>;
@@ -242,6 +243,7 @@ export const storage = {
   
   // Enterprise API - Webhook methods
   createWebhook: async (data: any) => (await StorageFactory.getStorage()).createWebhook(data),
+  getWebhook: async (webhookId: string) => (await StorageFactory.getStorage()).getWebhook(webhookId),
   listWebhooks: async (orgId: string) => (await StorageFactory.getStorage()).listWebhooks(orgId),
   updateWebhook: async (webhookId: string, data: any) => (await StorageFactory.getStorage()).updateWebhook(webhookId, data),
   deleteWebhook: async (webhookId: string) => (await StorageFactory.getStorage()).deleteWebhook(webhookId),
