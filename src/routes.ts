@@ -7,6 +7,7 @@ import generationRouter from "./routers/generationRouter";
 import creditsRouter from "./routers/creditsRouter";
 import { tryonRouter } from "./routers/tryonRouter";
 import { avatarRouter } from "./routers/avatarRouter";
+import { photoRouter } from "./routers/photoRouter";
 import { garmentRouter } from "./routers/garmentRouter";
 import { requestLogger } from "./middleware/requestLogger";
 import { setUser, requireAuth } from "./middleware/auth";
@@ -28,6 +29,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/credits", requireAuth, creditsRouter);
   app.use("/api/tryon", tryonRouter);
   app.use("/api/tryon/avatars", avatarRouter);
+  app.use("/api/tryon/photos", photoRouter);
   app.use("/api/tryon/garment", garmentRouter);
   app.use("/api", paymentsRouter);
   app.use("/api/analytics", requireAuth, analyticsRouter);

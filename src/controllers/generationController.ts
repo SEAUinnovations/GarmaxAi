@@ -51,8 +51,9 @@ export async function createGeneration(req: AuthenticatedRequest, res: Response)
     logger.info(`Generation created: ${generation.id}`, "generationController");
 
     res.status(201).json({
+      id: generation.id,
+      status: generation.status,
       message: "Generation request created",
-      generation,
     });
   } catch (error) {
     logger.error(`Generate image error: ${error}`, "generationController");

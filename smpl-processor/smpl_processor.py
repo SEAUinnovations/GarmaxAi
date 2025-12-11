@@ -170,16 +170,20 @@ class SMPLProcessor:
             logger.error(f"Failed to load SMPL models: {e}")
             raise
     
-    def process_image(self, session_id: str, user_id: str, avatar_image_key: str, 
-                     garment_image_key: str) -> Dict[str, Any]:
+    def process_image(self, session_id: str, user_id: str, avatar_image_key: str = None,
+                     photo_image_key: str = None, garment_image_key: str = None) -> Dict[str, Any]:
         """
         Process user image through full SMPL pipeline
+        
+        DUAL SUPPORT: Handles both photo-based (new) and avatar-based (legacy) workflows
+        photo_image_key takes priority over avatar_image_key when both are provided
         
         Args:
             session_id: Unique session identifier
             user_id: User identifier for quota tracking
-            avatar_image_key: S3 key for user's photo
-            garment_image_key: S3 key for garment reference
+            avatar_image_key: S3 key for user's avatar image (LEGACY - kept for backward compatibility)
+            photo_image_key: S3 key for user's uploaded photo (NEW - preferred)
+            garment_image_key: S3 key for garment reference (optional)
             
         Returns:
             Dict containing processing results and guidance asset keys
@@ -193,20 +197,35 @@ class SMPLProcessor:
             
             logger.info(f"Processing session {session_id} for user {user_id}")
             
+            # DUAL SUPPORT: Determine which image key to use (photo takes priority)
+            # Photo-based workflow uses images from user_photos table (photo_s3_key)
+            # Avatar-based workflow uses images from user_avatars table (s3_key)
+            if photo_image_key:
+                user_image_key = photo_image_key
+                source_type = 'photo'
+                logger.info(f"Using photo-based image: {photo_image_key}")
+            elif avatar_image_key:
+                user_image_key = avatar_image_key
+                source_type = 'avatar'
+                logger.info(f"Using avatar-based image: {avatar_image_key}")
+            else:
+                raise ValueError("Either photo_image_key or avatar_image_key must be provided")
+            
             # Step 1: Download and validate input images
-            avatar_path, garment_path = self._download_input_images(
-                session_id, avatar_image_key, garment_image_key, temp_dir
+            # Download user photo/avatar and garment reference images from S3
+            user_image_path, garment_path = self._download_input_images(
+                session_id, user_image_key, garment_image_key, temp_dir
             )
             
             # Step 2: SMPL pose estimation using ROMP
-            pose_results = self._estimate_pose_romp(avatar_path, temp_dir)
+            pose_results = self._estimate_pose_romp(user_image_path, temp_dir)
             
             # Step 3: Body mesh fitting with SMPLify-X
-            mesh_results = self._fit_body_mesh(avatar_path, pose_results, temp_dir)
+            mesh_results = self._fit_body_mesh(user_image_path, pose_results, temp_dir)
             
             # Step 4: Generate guidance assets
             guidance_assets = self._generate_guidance_assets(
-                avatar_path, garment_path, pose_results, mesh_results, temp_dir
+                user_image_path, garment_path, pose_results, mesh_results, temp_dir
             )
             
             # Step 5: Upload results to S3
@@ -219,10 +238,10 @@ class SMPLProcessor:
             self.stats['processed_count'] += 1
             self.stats['last_activity'] = datetime.utcnow()
             
-            logger.info(f"Session {session_id} processed successfully in {processing_time:.2f}s")
+            logger.info(f"Session {session_id} processed successfully in {processing_time:.2f}s using {source_type}")
             
             # Send success metrics to CloudWatch
-            self._send_metrics('SMPL.ProcessingSuccess', 1, {'SessionId': session_id})
+            self._send_metrics('SMPL.ProcessingSuccess', 1, {'SessionId': session_id, 'SourceType': source_type})
             self._send_metrics('SMPL.ProcessingTime', processing_time, {'SessionId': session_id})
             
             return {

@@ -59,7 +59,78 @@ export default function VirtualTryonStudio() {
   const [showProcessingModal, setShowProcessingModal] = useState(false);
   const [currentSession, setCurrentSession] = useState<TryonSession | null>(null);
   const [sessionHistory, setSessionHistory] = useState<TryonSession[]>([]);
+  const [ws, setWs] = useState<WebSocket | null>(null);
   const { toast } = useToast();
+
+  // Initialize WebSocket connection on component mount
+  // WebSocket provides real-time updates for try-on session progress
+  useEffect(() => {
+    // Connect to WebSocket server
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/tryon`;
+    
+    const websocket = new WebSocket(wsUrl);
+    
+    websocket.onopen = () => {
+      console.log('WebSocket connected to try-on service');
+      toast({
+        title: "Connected",
+        description: "Real-time updates enabled"
+      });
+    };
+
+    websocket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        // Handle different types of WebSocket messages
+        if (data.type === 'connected') {
+          console.log('WebSocket connection confirmed');
+        } else if (data.sessionId) {
+          // This is a session status update
+          // Update current session state with new progress/status
+          setCurrentSession(prev => {
+            if (prev?.id === data.sessionId) {
+              return {
+                ...prev,
+                status: data.status,
+                progress: data.progress,
+                previewUrl: data.previewImageUrl || prev.previewUrl,
+                resultUrl: data.renderedImageUrl || prev.resultUrl,
+              };
+            }
+            return prev;
+          });
+        }
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error);
+      }
+    };
+
+    websocket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      // Fallback to polling if WebSocket fails
+    };
+
+    websocket.onclose = () => {
+      console.log('WebSocket disconnected');
+      // Attempt to reconnect after 5 seconds
+      setTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          window.location.reload(); // Simple reconnection strategy
+        }
+      }, 5000);
+    };
+
+    setWs(websocket);
+
+    // Cleanup WebSocket on component unmount
+    return () => {
+      if (websocket.readyState === WebSocket.OPEN) {
+        websocket.close();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Load user photos and wardrobe from API
@@ -70,21 +141,34 @@ export default function VirtualTryonStudio() {
 
   const loadUserPhotos = async () => {
     try {
-      // TODO: Replace with actual API call
-      const mockPhotos: UserPhoto[] = [
-        {
-          id: 'demo-photo-1',
-          url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop&crop=face',
-          thumbnailUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=200&fit=crop&crop=face',
-          type: 'front',
-          uploadedAt: new Date().toISOString(),
-          processed: true,
-          smplData: { confidence: 0.85, bodyShape: 'athletic' }
-        }
-      ];
-      setUserPhotos(mockPhotos);
-      setPhotoLimit({ current: mockPhotos.length, limit: 3 });
+      // Fetch user's uploaded photos from backend API
+      // GET /api/tryon/photos returns list of photos with metadata
+      const response = await fetch('/api/tryon/photos', {
+        credentials: 'include', // Include cookies for authentication
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch photos');
+      }
+
+      const data = await response.json();
+      
+      // Map API response to UserPhoto type
+      // Response format: { photos: [{ id, url, thumbnailUrl, type, uploadedAt, processed, smplData }] }
+      const photos: UserPhoto[] = data.photos.map((photo: any) => ({
+        id: photo.id,
+        url: photo.url,
+        thumbnailUrl: photo.thumbnailUrl,
+        type: photo.type,
+        uploadedAt: photo.uploadedAt,
+        processed: photo.processed,
+        smplData: photo.smplData,
+      }));
+
+      setUserPhotos(photos);
+      setPhotoLimit({ current: photos.length, limit: 3 });
     } catch (error) {
+      console.error('Load photos error:', error);
       toast({
         title: "Failed to load photos",
         description: "Please try again later",
@@ -95,44 +179,37 @@ export default function VirtualTryonStudio() {
 
   const loadWardrobe = async () => {
     try {
-      // TODO: Replace with actual API call  
-      const mockGarments: Garment[] = [
-        {
-          id: 'demo-shirt-1',
-          name: 'Blue Cotton T-Shirt',
-          type: 'shirt',
-          color: 'blue',
-          imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&q=80',
-          thumbnailUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=150&q=80',
-          uploadedAt: new Date().toISOString(),
-          isOverlayable: false
-        },
-        {
-          id: 'demo-dress-1',
-          name: 'Summer Floral Dress',
-          type: 'dress',
-          color: 'floral',
-          imageUrl: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&q=80',
-          thumbnailUrl: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=150&q=80',
-          uploadedAt: new Date().toISOString(),
-          isOverlayable: true
-        },
-        {
-          id: 'demo-jacket-1',
-          name: 'Black Leather Jacket',
-          type: 'jacket',
-          color: 'black',
-          imageUrl: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&q=80',
-          thumbnailUrl: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=150&q=80',
-          uploadedAt: new Date().toISOString(),
-          isOverlayable: false
-        }
-      ];
-      setWardrobe(mockGarments);
+      // Fetch user's garment wardrobe from backend API
+      // GET /api/tryon/garment returns list of uploaded garments
+      const response = await fetch('/api/tryon/garment', {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch wardrobe');
+      }
+
+      const data = await response.json();
+      
+      // Map API response to Garment type
+      // Response format: { garments: [{ id, name, type, color, imageUrl, thumbnailUrl, isOverlayable }] }
+      const garments: Garment[] = data.garments.map((garment: any) => ({
+        id: garment.id,
+        name: garment.name,
+        type: garment.type,
+        color: garment.color,
+        imageUrl: garment.imageUrl,
+        thumbnailUrl: garment.thumbnailUrl || garment.imageUrl,
+        uploadedAt: garment.createdAt,
+        isOverlayable: garment.isOverlayable,
+      }));
+
+      setWardrobe(garments);
     } catch (error) {
+      console.error('Load wardrobe error:', error);
       toast({
         title: "Failed to load wardrobe",
-        description: "Please try again later", 
+        description: "Please try again later",
         variant: "destructive"
       });
     }
@@ -140,8 +217,18 @@ export default function VirtualTryonStudio() {
 
   const loadSessionHistory = async () => {
     try {
-      // TODO: Load recent try-on sessions
-      setSessionHistory([]);
+      // Fetch user's recent try-on sessions
+      // GET /api/tryon/sessions returns paginated list of sessions
+      const response = await fetch('/api/tryon/sessions?limit=10', {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch sessions');
+      }
+
+      const data = await response.json();
+      setSessionHistory(data.sessions || []);
     } catch (error) {
       console.error('Failed to load session history:', error);
     }
@@ -151,37 +238,30 @@ export default function VirtualTryonStudio() {
     try {
       setShowPhotoUploader(false);
       
-      // Upload photo to backend
+      // Upload photo to backend using FormData for multipart/form-data
+      // Backend endpoint: POST /api/tryon/photos/upload
+      // Expects: 'photo' field (file), 'type' field (string)
       const formData = new FormData();
       formData.append('photo', file);
       formData.append('type', type);
       
-      // TODO: Replace with actual API endpoint
       const response = await fetch('/api/tryon/photos/upload', {
         method: 'POST',
+        credentials: 'include', // Include auth cookies
         body: formData,
+        // Note: Do NOT set Content-Type header - browser auto-sets with boundary
       });
       
       if (!response.ok) {
-        throw new Error('Upload failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Upload failed');
       }
       
-      let newPhoto: UserPhoto;
-      if (response.ok) {
-        newPhoto = await response.json();
-      } else {
-        // Fallback: create photo object with blob URL for preview
-        const previewUrl = URL.createObjectURL(file);
-        newPhoto = {
-          id: `photo_${Date.now()}`,
-          url: previewUrl,
-          thumbnailUrl: previewUrl,
-          type,
-          uploadedAt: new Date().toISOString(),
-          processed: false
-        };
-      }
+      // Backend returns the created photo object with S3 URLs
+      // Response format: { id, url, thumbnailUrl, type, uploadedAt, processed, ... }
+      const newPhoto: UserPhoto = await response.json();
       
+      // Update local state with new photo
       setUserPhotos([...userPhotos, newPhoto]);
       setPhotoLimit({ ...photoLimit, current: photoLimit.current + 1 });
       
@@ -191,9 +271,10 @@ export default function VirtualTryonStudio() {
       });
       
     } catch (error) {
+      console.error('Photo upload error:', error);
       toast({
         title: "Upload failed",
-        description: "Please try again with a different photo",
+        description: error instanceof Error ? error.message : "Please try again with a different photo",
         variant: "destructive"
       });
     }
@@ -235,9 +316,11 @@ export default function VirtualTryonStudio() {
     }
 
     try {
-      // Create try-on session via new photo-based API
+      // Create try-on session via photo-based API
+      // POST /api/tryon/session/create with photoId (not avatarId)
+      // Backend validates: user owns photo, photo is SMPL-processed, garments exist
       const sessionData = {
-        photoId: selectedPhoto.id,
+        photoId: selectedPhoto.id, // Send photoId instead of avatarId
         garmentIds: selectedGarments,
         preferences: {
           renderQuality: 'standard',
@@ -245,21 +328,34 @@ export default function VirtualTryonStudio() {
         }
       };
 
-      const response = await fetch('/api/tryon/sessions', {
+      const response = await fetch('/api/tryon/session/create', {
         method: 'POST',
+        credentials: 'include', // Include auth cookies
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sessionData)
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create try-on session');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create try-on session');
       }
 
       const session: TryonSession = await response.json();
       setCurrentSession(session);
       setShowProcessingModal(true);
 
-      // Start polling for session status updates
+      // Subscribe to WebSocket updates for this session
+      // Backend will broadcast status changes: queued → processing → rendering → completed
+      // WebSocket already connected via useEffect, now subscribe to this specific session
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          action: 'subscribe',
+          sessionId: session.id
+        }));
+      }
+
+      // Fallback: Start polling for session status updates if WebSocket fails
+      // WebSocket is preferred for real-time updates, polling as backup
       pollSessionStatus(session.id);
 
       toast({
@@ -268,9 +364,10 @@ export default function VirtualTryonStudio() {
       });
 
     } catch (error) {
+      console.error('Start try-on error:', error);
       toast({
         title: "Failed to start try-on",
-        description: "Please try again later",
+        description: error instanceof Error ? error.message : "Please try again later",
         variant: "destructive"
       });
     }
@@ -279,16 +376,21 @@ export default function VirtualTryonStudio() {
   const pollSessionStatus = async (sessionId: string) => {
     const poll = async () => {
       try {
-        const response = await fetch(`/api/tryon/sessions/${sessionId}/status`);
+        // GET /api/tryon/session/:sessionId/status - polling fallback for WebSocket
+        const response = await fetch(`/api/tryon/session/${sessionId}/status`, {
+          credentials: 'include'
+        });
+        
         if (response.ok) {
           const session: TryonSession = await response.json();
           setCurrentSession(session);
 
           // Continue polling if still processing
+          // Possible statuses: queued, processing, rendering, completed, failed, cancelled
           if (['queued', 'processing', 'rendering'].includes(session.status)) {
             setTimeout(poll, 2000); // Poll every 2 seconds
           } else {
-            // Session complete or failed
+            // Session complete or failed - add to history if completed
             if (session.status === 'completed') {
               setSessionHistory([session, ...sessionHistory]);
             }

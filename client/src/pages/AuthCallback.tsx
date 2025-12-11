@@ -3,7 +3,8 @@ import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Use relative URL in production, localhost for development
+const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:3000/api' : '/api';
 
 /**
  * AuthCallback - Handles OAuth callback from Cognito/Google

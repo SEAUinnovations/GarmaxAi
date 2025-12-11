@@ -98,14 +98,26 @@ const RENDERS_BUCKET_NAME = process.env.RENDERS_BUCKET_NAME || '';
 const EVENT_BUS_NAME = process.env.EVENT_BUS_NAME || '';
 const STAGE = process.env.STAGE || 'dev';
 
+// Database imports for photo/avatar lookups
+// Using mysql2/promise for direct database queries without Drizzle ORM in Lambda
+import mysql from 'mysql2/promise';
+
+// Cache database connection for Lambda warm starts
+let dbConnection: mysql.Connection | null = null;
+
 // Types for better type safety
 interface TryonSessionEvent {
   sessionId: string;
   userId: string;
-  inputs: {
-    frontPhotoKey: string;
+  // DUAL SUPPORT: Backend sends either photoId (new photo-based flow) or avatarId (legacy avatar flow)
+  photoId?: string;
+  avatarId?: string;
+  garmentIds?: string[]; // Array of garment IDs from session
+  promptGarmentIds?: string[];
+  inputs?: { // Optional legacy structure
+    frontPhotoKey?: string;
     sidePhotoKey?: string;
-    garmentRefs: Array<{
+    garmentRefs?: Array<{
       id: string;
       type: 'shirt' | 'pants' | 'dress' | 'shoes' | 'accessories';
       s3Key: string;
@@ -115,12 +127,12 @@ interface TryonSessionEvent {
       fitNotes?: string;
     }>;
   };
-  preferences: {
-    renderQuality: 'fast' | 'standard' | 'premium';
+  preferences?: {
+    renderQuality?: 'fast' | 'standard' | 'premium';
     stylePrompt?: string;
-    fitPreference: 'loose' | 'fitted' | 'oversized';
+    fitPreference?: 'loose' | 'fitted' | 'oversized';
   };
-  trace: {
+  trace?: {
     correlationId: string;
     requestId: string;
     timestamp: string;
@@ -128,6 +140,106 @@ interface TryonSessionEvent {
 }
 
 /**
+ * Get or create database connection (reused across warm Lambda invocations)
+ * Uses mysql2/promise for lightweight database access without Drizzle ORM overhead
+ */
+async function getDatabaseConnection(config: any): Promise<mysql.Connection> {
+  if (dbConnection) {
+    try {
+      // Test connection is still alive
+      await dbConnection.ping();
+      return dbConnection;
+    } catch (error) {
+      console.log('Database connection stale, reconnecting...');
+      dbConnection = null;
+    }
+  }
+
+  // Create new connection
+  console.log('Establishing database connection...');
+  dbConnection = await mysql.createConnection(config.databaseUrl);
+  return dbConnection;
+}
+
+/**
+ * Fetch photo record from database by photoId
+ * Returns photo S3 key and metadata for SMPL processing
+ */
+async function fetchPhotoRecord(photoId: string, config: any): Promise<{
+  photoS3Key: string;
+  photoUrl: string;
+  userId: string;
+  photoType: string;
+  smplProcessed: boolean;
+  smplDataUrl?: string | null;
+} | null> {
+  try {
+    const db = await getDatabaseConnection(config);
+    
+    // Query user_photos table for photo record
+    // photo_s3_key contains the S3 object key for the uploaded photo
+    const [rows] = await db.query(
+      'SELECT id, user_id, photo_url, photo_s3_key, photo_type, smpl_processed, smpl_data_url FROM user_photos WHERE id = ?',
+      [photoId]
+    );
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      console.error(`Photo not found: ${photoId}`);
+      return null;
+    }
+
+    const photo: any = rows[0];
+    
+    return {
+      photoS3Key: photo.photo_s3_key,
+      photoUrl: photo.photo_url,
+      userId: photo.user_id,
+      photoType: photo.photo_type,
+      smplProcessed: photo.smpl_processed || false,
+      smplDataUrl: photo.smpl_data_url,
+    };
+  } catch (error: any) {
+    console.error(`Failed to fetch photo record: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Fetch avatar record from database by avatarId (legacy support)
+ * Returns avatar S3 key for backward compatibility
+ */
+async function fetchAvatarRecord(avatarId: string, config: any): Promise<{
+  avatarS3Key: string;
+  avatarUrl: string;
+} | null> {
+  try {
+    const db = await getDatabaseConnection(config);
+    
+    // Query user_avatars table for avatar record
+    const [rows] = await db.query(
+      'SELECT id, image_url, s3_key FROM user_avatars WHERE id = ?',
+      [avatarId]
+    );
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      console.error(`Avatar not found: ${avatarId}`);
+      return null;
+    }
+
+    const avatar: any = rows[0];
+    
+    return {
+      avatarS3Key: avatar.s3_key,
+      avatarUrl: avatar.image_url,
+    };
+  } catch (error: any) {
+    console.error(`Failed to fetch avatar record: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+
  * Main Lambda handler entry point
  * Processes SQS messages from EventBridge try-on session creation events
  */
@@ -163,6 +275,7 @@ export async function handler(event: any) {
 
 /**
  * Process individual SQS record containing try-on session creation event
+ * DUAL SUPPORT: Handles both photo-based (new) and avatar-based (legacy) workflows
  */
 async function processRecord(record: any, config: any): Promise<{ success: boolean; sessionId: string }> {
   const startTime = Date.now();
@@ -173,16 +286,66 @@ async function processRecord(record: any, config: any): Promise<{ success: boole
     const detail: TryonSessionEvent = eventData.detail;
     
     console.log(`🎯 Processing try-on session: ${detail.sessionId}`);
-    console.log(`👤 User: ${detail.userId}, Quality: ${detail.preferences.renderQuality}`);
-    console.log(`📦 Using buckets from Parameter Store - Uploads: ${config.uploadsBucket}`);
+    console.log(`👤 User: ${detail.userId}`);
+    
+    // STEP 0: Determine source (photo vs avatar) and fetch image keys from database
+    // Backend sends either photoId OR avatarId in event.detail
+    let imageS3Key: string;
+    let sourceType: 'photo' | 'avatar';
+    
+    if (detail.photoId) {
+      // NEW FLOW: Photo-based try-on
+      console.log(`📸 Photo-based try-on with photoId: ${detail.photoId}`);
+      sourceType = 'photo';
+      
+      const photoRecord = await fetchPhotoRecord(detail.photoId, config);
+      if (!photoRecord) {
+        throw new Error(`Photo not found: ${detail.photoId}`);
+      }
+      
+      imageS3Key = photoRecord.photoS3Key;
+      console.log(`✅ Fetched photo S3 key: ${imageS3Key}`);
+      
+      // Check if SMPL already processed (photo upload may have already run SMPL)
+      if (photoRecord.smplProcessed && photoRecord.smplDataUrl) {
+        console.log('🎉 Photo already has SMPL data, skipping reprocessing');
+        // Could skip SMPL step and use cached data
+      }
+      
+    } else if (detail.avatarId) {
+      // LEGACY FLOW: Avatar-based try-on (backward compatibility)
+      console.log(`🤖 Avatar-based try-on with avatarId: ${detail.avatarId}`);
+      sourceType = 'avatar';
+      
+      const avatarRecord = await fetchAvatarRecord(detail.avatarId, config);
+      if (!avatarRecord) {
+        throw new Error(`Avatar not found: ${detail.avatarId}`);
+      }
+      
+      imageS3Key = avatarRecord.avatarS3Key;
+      console.log(`✅ Fetched avatar S3 key: ${imageS3Key}`);
+      
+    } else {
+      throw new Error('Event must contain either photoId or avatarId');
+    }
+    
+    console.log(`📦 Using ${sourceType} image: ${imageS3Key}`);
+
+    // Build inputs structure for downstream SMPL processing
+    // Map fetched S3 key to the format expected by processPhotosWithSMPL
+    const inputs = {
+      frontPhotoKey: imageS3Key, // Use fetched S3 key as front photo
+      garmentRefs: detail.inputs?.garmentRefs || [], // Garment references if provided
+    };
 
     // Step 1: Validate session and quotas
     console.log('🔍 Validating session and user quotas');
     await validateSessionAndQuotas(detail.userId, detail.sessionId);
     
     // Step 2: Process photos through SMPL pipeline
+    // Pass imageS3Key to SMPL processor which will download from S3 and extract pose/body shape
     console.log('🧮 Running SMPL estimation for pose and body shape extraction');
-    const smplResults = await processPhotosWithSMPL(detail.inputs, detail.sessionId);
+    const smplResults = await processPhotosWithSMPL(inputs, detail.sessionId, config);
     
     // Step 3: Generate guidance assets for AI rendering
     console.log('🎨 Generating guidance assets (depth, normals, pose, segmentation)');
@@ -190,7 +353,7 @@ async function processRecord(record: any, config: any): Promise<{ success: boole
     
     // Step 4: Create quick preview render
     console.log('⚡ Generating quick preview render');
-    const previewKey = await generatePreviewRender(smplResults, detail.inputs.garmentRefs, detail.sessionId);
+    const previewKey = await generatePreviewRender(smplResults, inputs.garmentRefs, detail.sessionId);
     
     // Step 5: Build prompts and publish render request
     console.log('📢 Publishing render request event to EventBridge');
@@ -199,12 +362,12 @@ async function processRecord(record: any, config: any): Promise<{ success: boole
       userId: detail.userId,
       previewKey,
       guidanceAssets,
-      garmentMetadata: detail.inputs.garmentRefs,
-      renderOptions: mapQualityToRenderOptions(detail.preferences.renderQuality),
-      correlationId: detail.trace.correlationId,
+      garmentMetadata: inputs.garmentRefs,
+      renderOptions: mapQualityToRenderOptions(detail.preferences?.renderQuality || 'standard'),
+      correlationId: detail.trace?.correlationId || detail.sessionId,
     });
     
-    console.log(`✅ Try-on processing completed for session ${detail.sessionId}`);
+    console.log(`✅ Try-on processing completed for session ${detail.sessionId} using ${sourceType}`);
     console.log(`⏱️ Total processing time: ${Date.now() - startTime}ms`);
     
     return { success: true, sessionId: detail.sessionId };
@@ -235,8 +398,9 @@ async function validateSessionAndQuotas(userId: string, sessionId: string): Prom
 /**
  * Process user photos through SMPL pipeline to extract 3D pose and body shape
  * Supports both Lambda-based processing (lightweight) and ECS-based processing (heavy-duty)
+ * Updated to accept config parameter for database/S3 access
  */
-async function processPhotosWithSMPL(inputs: TryonSessionEvent['inputs'], sessionId: string): Promise<any> {
+async function processPhotosWithSMPL(inputs: any, sessionId: string, config: any): Promise<any> {
   console.log('🔬 Starting SMPL estimation pipeline');
   
   // Check if ECS processing is enabled for heavy SMPL computation
@@ -248,7 +412,7 @@ async function processPhotosWithSMPL(inputs: TryonSessionEvent['inputs'], sessio
     console.log('🚢 Delegating SMPL processing to ECS for heavy computation');
     
     // Launch ECS task for compute-intensive SMPL processing
-    const ecsResults = await launchEcsSmplTask(sessionId, inputs);
+    const ecsResults = await launchEcsSmplTask(sessionId, inputs, config);
     
     // ECS task will process photos and publish completion event directly
     // Return placeholder to indicate ECS processing is in progress

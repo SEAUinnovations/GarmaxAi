@@ -6,6 +6,7 @@ import {
   getUserTryonSessions,
   confirmPreview,
   cancelTryonSession,
+  getSessionStatus,
 } from "../controllers/tryonController";
 
 export const tryonRouter = Router();
@@ -281,3 +282,48 @@ tryonRouter.post("/session/:sessionId/confirm", confirmPreview);
  *         description: Not authorized to access this session
  */
 tryonRouter.post("/session/:sessionId/cancel", cancelTryonSession);
+
+/**
+ * @swagger
+ * /tryon/session/{sessionId}/status:
+ *   get:
+ *     tags: [Try-On Sessions]
+ *     summary: Get try-on session status
+ *     description: Retrieves the current status of a try-on session (polling endpoint, WebSocket preferred)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The try-on session ID
+ *     responses:
+ *       200:
+ *         description: Session status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sessionId:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                 progress:
+ *                   type: integer
+ *                 previewUrl:
+ *                   type: string
+ *                 resultUrl:
+ *                   type: string
+ *                 createdAt:
+ *                   type: string
+ *                 completedAt:
+ *                   type: string
+ *       404:
+ *         description: Session not found
+ *       401:
+ *         description: Not authenticated
+ */
+tryonRouter.get("/session/:sessionId/status", getSessionStatus);

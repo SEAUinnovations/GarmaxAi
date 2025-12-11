@@ -103,6 +103,22 @@ export const userAvatars = mysqlTable("user_avatars", {
   updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
 });
 
+// User Photos table - for photo-based try-on workflow
+export const userPhotos = mysqlTable("user_photos", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  photoUrl: text("photo_url").notNull(),
+  photoS3Key: text("photo_s3_key").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  photoType: varchar("photo_type", { length: 20 }).notNull().default("front"), // front, side, full-body
+  smplProcessed: boolean("smpl_processed").notNull().default(false),
+  smplDataUrl: text("smpl_data_url"),
+  smplConfidence: decimal("smpl_confidence", { precision: 5, scale: 2 }),
+  smplMetadata: json("smpl_metadata"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
 // Garment Items table
 export const garmentItems = mysqlTable("garment_items", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
@@ -133,7 +149,8 @@ export const virtualWardrobe = mysqlTable("virtual_wardrobe", {
 export const tryonSessions = mysqlTable("tryon_sessions", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
-  avatarId: varchar("avatar_id", { length: 36 }).notNull().references(() => userAvatars.id),
+  avatarId: varchar("avatar_id", { length: 36 }).references(() => userAvatars.id),
+  photoId: varchar("photo_id", { length: 36 }).references(() => userPhotos.id),
   garmentIds: json("garment_ids").$type<string[]>().notNull(),
   overlayGarmentIds: json("overlay_garment_ids").$type<string[]>().notNull(),
   promptGarmentIds: json("prompt_garment_ids").$type<string[]>().notNull(),
@@ -197,7 +214,7 @@ export const insertUserSchema = z.object({
 
 export const generationSchema = z.object({
   prompt: z.string().min(10, "Prompt must be at least 10 characters"),
-  style: z.enum(["portrait", "fashion", "editorial", "commercial"]),
+  style: z.enum(["portrait", "fashion", "editorial", "commercial", "street", "candid"]),
   quality: z.enum(["low", "medium", "high"]).optional(),
 });
 
@@ -212,13 +229,21 @@ export const uploadGarmentSchema = z.object({
   type: z.enum(["shirt", "pants", "dress", "jacket", "shoes", "hat", "accessory"]),
 });
 
+export const uploadPhotoSchema = z.object({
+  photoType: z.enum(["front", "side", "full-body"]).default("front"),
+});
+
 export const createTryonSessionSchema = z.object({
-  avatarId: z.string().uuid(),
+  avatarId: z.string().uuid().optional(),
+  photoId: z.string().uuid().optional(),
   garmentIds: z.array(z.string().uuid()).min(1),
   renderQuality: z.enum(["sd", "hd", "4k"]).default("sd"),
   backgroundScene: z.enum(["studio", "urban", "outdoor", "custom"]).default("studio"),
   customBackgroundPrompt: z.string().max(200).optional(),
-});
+}).refine(
+  (data) => (data.avatarId && !data.photoId) || (!data.avatarId && data.photoId),
+  { message: "Either avatarId or photoId must be provided, but not both" }
+);
 
 export const confirmPreviewSchema = z.object({
   approveOverlay: z.boolean(),
@@ -233,6 +258,8 @@ export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type UserAvatar = typeof userAvatars.$inferSelect;
 export type InsertUserAvatar = typeof userAvatars.$inferInsert;
+export type UserPhoto = typeof userPhotos.$inferSelect;
+export type InsertUserPhoto = typeof userPhotos.$inferInsert;
 export type GarmentItem = typeof garmentItems.$inferSelect;
 export type InsertGarmentItem = typeof garmentItems.$inferInsert;
 export type VirtualWardrobe = typeof virtualWardrobe.$inferSelect;

@@ -5,6 +5,7 @@ import { storage } from "../storage";
 import { creditsService } from "../services/creditsService";
 import { subscriptionService } from "../services/subscriptionService";
 import { eventBridgeService } from "../services/eventBridgeService";
+import { jobStatusService } from "../services/jobStatusService";
 import { 
   createTryonSessionSchema, 
   confirmPreviewSchema
@@ -29,7 +30,7 @@ export async function createTryonSession(
 
     // Validate request body
     const validatedData = createTryonSessionSchema.parse(req.body);
-    const { avatarId, garmentIds, renderQuality, backgroundScene, customBackgroundPrompt } = validatedData;
+    const { avatarId, photoId, garmentIds, renderQuality, backgroundScene, customBackgroundPrompt } = validatedData;
 
     // Check if user has quota or credits
     const hasQuota = await subscriptionService.hasTryonQuota(userId);
@@ -44,10 +45,24 @@ export async function createTryonSession(
       return;
     }
 
-    // Verify avatar ownership
-    const avatar = await storage.getUserAvatar?.(avatarId);
-    if (!avatar || avatar.userId !== userId) {
-      res.status(404).json({ error: "Avatar not found" });
+    // Verify avatar or photo ownership
+    let sourceType: 'avatar' | 'photo';
+    if (avatarId) {
+      const avatar = await storage.getUserAvatar?.(avatarId);
+      if (!avatar || avatar.userId !== userId) {
+        res.status(404).json({ error: "Avatar not found" });
+        return;
+      }
+      sourceType = 'avatar';
+    } else if (photoId) {
+      const photo = await storage.getUserPhoto?.(photoId);
+      if (!photo || photo.userId !== userId) {
+        res.status(404).json({ error: "Photo not found" });
+        return;
+      }
+      sourceType = 'photo';
+    } else {
+      res.status(400).json({ error: "Either avatarId or photoId must be provided" });
       return;
     }
 
@@ -80,7 +95,8 @@ export async function createTryonSession(
     // Create session
     const session = await storage.createTryonSession?.({
       userId,
-      avatarId,
+      avatarId: avatarId || null,
+      photoId: photoId || null,
       garmentIds,
       overlayGarmentIds,
       promptGarmentIds,
@@ -100,6 +116,17 @@ export async function createTryonSession(
 
     // Publish EventBridge event for async SMPL processing
     await eventBridgeService.publishTryonEvent(session);
+
+    // Broadcast initial status to WebSocket subscribers
+    // This notifies any connected clients that the session has been created
+    // and is now queued for processing
+    jobStatusService.broadcastSessionStatus(session.id, {
+      sessionId: session.id,
+      status: "queued",
+      progress: 0,
+      message: "Try-on session created and queued for processing",
+      estimatedSecondsRemaining: 90,
+    });
 
     res.status(201).json({
       sessionId: session.id,
@@ -233,6 +260,15 @@ export async function confirmPreview(
         `Session ${sessionId} switched to prompt mode, refunded ${refundedCredits} credits`,
         "TryonController"
       );
+
+      // Broadcast status update via WebSocket
+      // Notify subscribers that overlay was rejected and session is switching to prompt mode
+      jobStatusService.broadcastSessionStatus(sessionId, {
+        sessionId,
+        status: "awaiting_confirmation",
+        progress: 50,
+        message: "Overlay rejected, switching to AI prompt mode",
+      });
     } else {
       // User approved overlay, proceed to AI rendering
       await storage.updateTryonSession?.(sessionId, {
@@ -241,6 +277,15 @@ export async function confirmPreview(
       
       // Publish EventBridge event for AI rendering
       await eventBridgeService.publishRenderEvent(session);
+
+      // Broadcast status update via WebSocket  
+      // Notify subscribers that overlay was approved and AI rendering is starting
+      jobStatusService.broadcastSessionStatus(sessionId, {
+        sessionId,
+        status: "awaiting_confirmation",
+        progress: 60,
+        message: "Overlay approved, starting AI rendering",
+      });
     }
 
     res.status(200).json({
@@ -295,6 +340,15 @@ export async function cancelTryonSession(
       status: "cancelled",
     });
 
+    // Broadcast cancellation status via WebSocket
+    // Notify any subscribers that the session has been cancelled by the user
+    jobStatusService.broadcastSessionStatus(sessionId, {
+      sessionId,
+      status: "cancelled",
+      progress: 0,
+      message: "Try-on session cancelled by user",
+    });
+
     res.status(200).json({
       success: true,
       refundedCredits,
@@ -307,5 +361,44 @@ export async function cancelTryonSession(
   } catch (error) {
     logger.error(`Cancel session error: ${error}`, "TryonController");
     res.status(500).json({ error: "Failed to cancel session" });
+  }
+}
+
+/**
+ * @description Get try-on session status (for polling/fallback to WebSocket)
+ * @param req - Express request object
+ * @param res - Express response object
+ */
+export async function getSessionStatus(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  try {
+    const userId = req.user?.id;
+    const { sessionId } = req.params;
+
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const session = await storage.getTryonSession?.(sessionId);
+    if (!session || session.userId !== userId) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+
+    res.status(200).json({
+      sessionId: session.id,
+      status: session.status,
+      progress: session.progress,
+      previewUrl: session.baseImageUrl,
+      resultUrl: session.renderedImageUrl,
+      createdAt: session.createdAt,
+      completedAt: session.completedAt,
+    });
+  } catch (error) {
+    logger.error(`Get session status error: ${error}`, "TryonController");
+    res.status(500).json({ error: "Failed to fetch session status" });
   }
 }

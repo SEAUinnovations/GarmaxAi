@@ -21,6 +21,8 @@ export interface IStorage {
   getGeneration(id: string): Promise<Generation | undefined>;
   getUserGenerations(userId: string): Promise<Generation[]>;
   cancelGeneration(id: string): Promise<boolean>;
+  updateGenerationStatus(id: string, status: "processing" | "completed" | "failed", errorMessage?: string): Promise<void>;
+  updateGenerationResult(id: string, resultUrl: string): Promise<void>;
   
   // OAuth methods
   getUserByCognitoId(cognitoId: string): Promise<User | undefined>;
@@ -37,6 +39,13 @@ export interface IStorage {
   getUserAvatar(avatarId: string): Promise<any | undefined>;
   createUserAvatar(data: any): Promise<any>;
   deleteUserAvatar(avatarId: string): Promise<boolean>;
+  
+  // Photo methods
+  getUserPhotos(userId: string): Promise<any[]>;
+  getUserPhoto(photoId: string): Promise<any | undefined>;
+  createUserPhoto(data: any): Promise<any>;
+  updateUserPhoto(photoId: string, data: any): Promise<any>;
+  deleteUserPhoto(photoId: string): Promise<boolean>;
   
   // Garment methods
   createGarment(data: any): Promise<any>;
@@ -121,6 +130,13 @@ export const storage = {
   getUserAvatar: async (avatarId: string) => (await StorageFactory.getStorage()).getUserAvatar(avatarId),
   createUserAvatar: async (data: any) => (await StorageFactory.getStorage()).createUserAvatar(data),
   deleteUserAvatar: async (avatarId: string) => (await StorageFactory.getStorage()).deleteUserAvatar(avatarId),
+  
+  // Photo methods
+  getUserPhotos: async (userId: string) => (await StorageFactory.getStorage()).getUserPhotos(userId),
+  getUserPhoto: async (photoId: string) => (await StorageFactory.getStorage()).getUserPhoto(photoId),
+  createUserPhoto: async (data: any) => (await StorageFactory.getStorage()).createUserPhoto(data),
+  updateUserPhoto: async (photoId: string, data: any) => (await StorageFactory.getStorage()).updateUserPhoto(photoId, data),
+  deleteUserPhoto: async (photoId: string) => (await StorageFactory.getStorage()).deleteUserPhoto(photoId),
   
   // Garment methods
   createGarment: async (data: any) => (await StorageFactory.getStorage()).createGarment(data),

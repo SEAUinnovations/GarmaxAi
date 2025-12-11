@@ -64,7 +64,7 @@ export class GenerationService {
   }
 
   /**
-   * Process generation with nano-banana
+   * Process generation with FLUX.1-dev
    */
   private async processGeneration(generationId: string, request: GenerationRequest): Promise<void> {
     try {
@@ -76,21 +76,22 @@ export class GenerationService {
       // Enhanced prompt based on style
       const enhancedPrompt = this.enhancePrompt(request.prompt, request.style);
 
-      // Generate image with nano-banana
-      const output = await replicate.run("google/nano-banana-pro:latest", {
+      // Generate image with FLUX.1-dev (best for consistent fashion models)
+      const output = await replicate.run("black-forest-labs/flux-dev", {
         input: {
           prompt: enhancedPrompt,
           num_inference_steps: this.getInferenceSteps(request.quality || "medium"),
-          guidance_scale: 7.5,
-          width: 512,
-          height: 512,
+          guidance_scale: 3.5, // FLUX.1 works best with lower guidance
+          width: 1024,
+          height: 1024,
+          num_outputs: 1,
         },
       }) as string[];
 
       const imageUrl = Array.isArray(output) ? output[0] : output;
 
       if (!imageUrl) {
-        throw new Error("No image URL returned from nano-banana");
+        throw new Error("No image URL returned from FLUX.1-dev");
       }
 
       // Update generation with result
@@ -99,16 +100,17 @@ export class GenerationService {
       logger.info(`Generation completed successfully: ${generationId}`, "GenerationService");
 
     } catch (error) {
-      logger.error(`Generation failed for ${generationId}: ${error}`, "GenerationService");
-      await this.updateGenerationStatus(generationId, "failed");
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`Generation failed for ${generationId}: ${errorMessage}`, "GenerationService");
+      await this.updateGenerationStatus(generationId, "failed", errorMessage);
     }
   }
 
   /**
    * Update generation status
    */
-  private async updateGenerationStatus(generationId: string, status: "processing" | "completed" | "failed"): Promise<void> {
-    // This would need to be implemented in storage interface
+  private async updateGenerationStatus(generationId: string, status: "processing" | "completed" | "failed", errorMessage?: string): Promise<void> {
+    await storage.updateGenerationStatus(generationId, status, errorMessage);
     logger.info(`Updated generation ${generationId} status to ${status}`, "GenerationService");
   }
 
@@ -116,7 +118,7 @@ export class GenerationService {
    * Update generation with result
    */
   private async updateGenerationResult(generationId: string, imageUrl: string): Promise<void> {
-    // This would need to be implemented in storage interface
+    await storage.updateGenerationResult(generationId, imageUrl);
     logger.info(`Updated generation ${generationId} with image URL`, "GenerationService");
   }
 
@@ -128,7 +130,9 @@ export class GenerationService {
       portrait: "professional portrait photography, high quality, detailed face, studio lighting",
       fashion: "fashion photography, runway style, professional lighting, haute couture",
       editorial: "editorial photography, artistic composition, dramatic lighting, magazine quality",
-      commercial: "commercial photography, product focused, clean background, professional"
+      commercial: "commercial photography, product focused, clean background, professional",
+      street: "street style photography, urban fashion, natural lighting, candid",
+      candid: "candid photography, natural moments, authentic, lifestyle"
     };
 
     const styleEnhancement = stylePrompts[style as keyof typeof stylePrompts] || stylePrompts.portrait;
@@ -137,14 +141,15 @@ export class GenerationService {
 
   /**
    * Get inference steps based on quality
+   * FLUX.1-dev optimal steps: 20-50
    */
   private getInferenceSteps(quality: string): number {
     const stepsMap: Record<string, number> = {
-      low: 20,
-      medium: 30,
-      high: 50,
+      low: 20,    // Fast generation
+      medium: 28, // Balanced (recommended)
+      high: 40,   // Maximum quality
     };
-    return stepsMap[quality] || 30;
+    return stepsMap[quality] || 28;
   }
 
   /**

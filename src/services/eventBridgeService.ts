@@ -29,6 +29,7 @@ export class EventBridgeService {
             sessionId: session.id,
             userId: session.userId,
             avatarId: session.avatarId,
+            photoId: session.photoId,
             garmentIds: session.garmentIds,
             promptGarmentIds: session.promptGarmentIds,
             status: session.status,
@@ -40,7 +41,11 @@ export class EventBridgeService {
 
       await eventBridgeClient.send(command);
 
-      logger.info(`Published TryonSessionCreated event for session ${session.id}`, 'EventBridgeService');
+      const sourceType = session.photoId ? 'photo' : 'avatar';
+      logger.info(
+        `Published TryonSessionCreated event for session ${session.id} (source: ${sourceType})`, 
+        'EventBridgeService'
+      );
 
     } catch (error: any) {
       logger.error(`Failed to publish try-on event: ${error.message}`, 'EventBridgeService');
@@ -63,6 +68,7 @@ export class EventBridgeService {
             sessionId: session.id,
             userId: session.userId,
             avatarId: session.avatarId,
+            photoId: session.photoId,
             garmentIds: session.garmentIds,
             promptGarmentIds: session.promptGarmentIds,
             renderQuality: session.renderQuality,

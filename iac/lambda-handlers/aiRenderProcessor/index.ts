@@ -129,6 +129,11 @@ export async function handler(event: any) {
   const startTime = Date.now();
   const correlationId = detail.trace?.correlationId || `render-${detail.sessionId}-${Date.now()}`;
   
+  // DUAL SUPPORT: Determine if this render is for photo-based or avatar-based session
+  // This info is logged for metrics/monitoring but doesn't affect render logic
+  const sourceType = detail.photoId ? 'photo' : detail.avatarId ? 'avatar' : 'unknown';
+  console.log(`📸 Render source type: ${sourceType} (photoId: ${detail.photoId || 'none'}, avatarId: ${detail.avatarId || 'none'})`);
+  
   try {
     // Step 1: Validate session and enforce user quotas
     console.log(`🔍 Validating session and quotas for user ${detail.userId}`);
@@ -226,12 +231,14 @@ export async function handler(event: any) {
     });
     
     // Step 8: Track usage metrics for budget monitoring
+    // Include source type (photo vs avatar) for analytics
     await trackRenderMetrics({
       provider: actualProvider,
       quality: detail.renderOptions.quality,
       processingTimeMs: Date.now() - startTime,
       success: true,
       userId: detail.userId,
+      sourceType, // Track whether render was from photo or avatar
     });
     
     console.log(`✅ AI rendering completed successfully for session ${detail.sessionId}`);

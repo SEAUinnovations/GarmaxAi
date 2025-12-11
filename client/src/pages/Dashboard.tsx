@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Camera, Download, Grid, LayoutDashboard, Settings, LogOut, Plus, History, User, Sparkles, CreditCard, Coins, Lock, Zap } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 // Assets
@@ -21,13 +21,141 @@ import port3 from "@assets/generated_images/commercial_fashion_portrait_3.png";
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<"generate" | "history" | "tryon">("generate");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [userPlan] = useState<"free" | "studio" | "pro">("free"); // Mock user plan
-  const [credits] = useState(240);
-  const [tryonQuota] = useState({ used: 0, limit: 0 }); // Free plan
+  const [userPlan] = useState<"free" | "studio" | "pro">("free");
+  const [credits, setCredits] = useState(0);
+  const [tryonQuota] = useState({ used: 0, limit: 0 });
+  const [trialStatus, setTrialStatus] = useState<string | null>(null);
+  const [isOnTrial, setIsOnTrial] = useState(false);
 
-  const handleGenerate = () => {
+  // Generation form state
+  const [prompt, setPrompt] = useState("");
+  const [aspectRatio, setAspectRatio] = useState("portrait");
+  const [style, setStyle] = useState("editorial");
+  const [quality, setQuality] = useState("medium");
+  const [hdMode, setHdMode] = useState(false);
+  const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+
+  // Fetch user data on mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem("auth_token");
+        const response = await fetch("/api/auth/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const userData = await response.json();
+          setCredits(userData.creditsRemaining || 0);
+          setTrialStatus(userData.trialStatus);
+          setIsOnTrial(userData.trialStatus === 'active');
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+    fetchUserData();
+  }, []);
+
+  // Calculate credit cost based on quality and HD mode
+  const calculateCreditCost = (): number => {
+    const selectedQuality = hdMode ? "high" : quality;
+    return selectedQuality === "high" ? 5 : selectedQuality === "medium" ? 3 : 1;
+  };
+
+  // Poll generation status
+  useEffect(() => {
+    if (!currentGenerationId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem("auth_token");
+        const response = await fetch(`/api/generation/${currentGenerationId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          console.error("Failed to fetch generation status");
+          return;
+        }
+
+        const generation = await response.json();
+
+        if (generation.status === "completed") {
+          setGeneratedImageUrl(generation.imageUrl);
+          setIsGenerating(false);
+          setCurrentGenerationId(null);
+          clearInterval(pollInterval);
+          // Refresh user credits after generation completes
+          const token = localStorage.getItem("auth_token");
+          const userResponse = await fetch("/api/auth/me", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            setCredits(userData.creditsRemaining || 0);
+          }
+        } else if (generation.status === "failed") {
+          console.error("Generation failed");
+          alert("Generation failed. Please try again.");
+          setIsGenerating(false);
+          setCurrentGenerationId(null);
+          clearInterval(pollInterval);
+        }
+      } catch (error) {
+        console.error("Error polling generation:", error);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [currentGenerationId]);
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) {
+      alert("Please enter a prompt");
+      return;
+    }
+
+    const creditCost = calculateCreditCost();
+    
+    // Check if user has enough credits (only if not on trial)
+    if (!isOnTrial && credits < creditCost) {
+      alert(`Insufficient credits. You need ${creditCost} credits but only have ${credits}.`);
+      return;
+    }
+
     setIsGenerating(true);
-    setTimeout(() => setIsGenerating(false), 3000); // Mock generation
+    setGeneratedImageUrl(null);
+
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch("/api/generation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          style,
+          quality: hdMode ? "high" : quality,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to start generation");
+      }
+
+      const data = await response.json();
+      setCurrentGenerationId(data.id);
+    } catch (error) {
+      console.error("Error starting generation:", error);
+      alert(error instanceof Error ? error.message : "Failed to start generation");
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -182,13 +310,15 @@ export default function Dashboard() {
                   <Textarea 
                     placeholder="Describe your model (e.g. 'Scandinavian female model, minimal makeup, wearing beige trench coat, studio lighting')..." 
                     className="min-h-[120px] bg-black/20 border-white/10 focus:border-accent/50"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Aspect Ratio</Label>
-                    <Select defaultValue="portrait">
+                    <Select value={aspectRatio} onValueChange={setAspectRatio}>
                       <SelectTrigger className="bg-black/20 border-white/10"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="portrait">Portrait (3:4)</SelectItem>
@@ -199,7 +329,7 @@ export default function Dashboard() {
                   </div>
                   <div className="space-y-2">
                     <Label>Style</Label>
-                    <Select defaultValue="editorial">
+                    <Select value={style} onValueChange={setStyle}>
                       <SelectTrigger className="bg-black/20 border-white/10"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="editorial">Editorial</SelectItem>
@@ -213,27 +343,43 @@ export default function Dashboard() {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label>Creativity Level</Label>
-                    <span className="text-xs text-muted-foreground">High</span>
+                    <Label>Quality</Label>
+                    <span className="text-xs text-muted-foreground capitalize">{quality}</span>
                   </div>
-                  <Slider defaultValue={[70]} max={100} step={1} className="[&>.active]:bg-accent" />
+                  <Select value={quality} onValueChange={setQuality}>
+                    <SelectTrigger className="bg-black/20 border-white/10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low (20 steps)</SelectItem>
+                      <SelectItem value="medium">Medium (28 steps)</SelectItem>
+                      <SelectItem value="high">High (40 steps)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="flex items-center justify-between py-2">
                   <Label htmlFor="hd-mode">High Definition Mode (4K)</Label>
-                  <Switch id="hd-mode" />
+                  <Switch id="hd-mode" checked={hdMode} onCheckedChange={setHdMode} />
                 </div>
 
                 <Button 
                   size="lg" 
                   className="w-full bg-accent text-accent-foreground hover:bg-white hover:text-black transition-all"
                   onClick={handleGenerate}
-                  disabled={isGenerating}
+                  disabled={isGenerating || (!isOnTrial && credits < calculateCreditCost())}
                 >
                   {isGenerating ? (
                     <>Generating <span className="animate-pulse ml-1">...</span></>
                   ) : (
-                    <>Generate Model <Sparkles size={16} className="ml-2" /></>
+                    <>
+                      Generate Model
+                      {!isOnTrial && (
+                        <span className="ml-2 flex items-center gap-1">
+                          <Coins size={14} />
+                          {calculateCreditCost()}
+                        </span>
+                      )}
+                      <Sparkles size={16} className="ml-2" />
+                    </>
                   )}
                 </Button>
               </div>
@@ -245,15 +391,19 @@ export default function Dashboard() {
                     <div className="w-16 h-16 border-4 border-white/10 border-t-accent rounded-full animate-spin mx-auto"/>
                     <p className="text-muted-foreground animate-pulse">Crafting your model...</p>
                   </div>
-                ) : (
+                ) : generatedImageUrl ? (
                   <div className="relative w-full h-full p-8 flex items-center justify-center group">
-                     {/* Placeholder for result - using one of our assets for demo */}
-                     <img src={port1} className="max-h-full max-w-full object-contain shadow-2xl rounded-lg" alt="Generated Result" />
+                     <img src={generatedImageUrl} className="max-h-full max-w-full object-contain shadow-2xl rounded-lg" alt="Generated Result" />
                      
                      <div className="absolute bottom-8 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <Button variant="secondary" size="sm"><Download size={16} className="mr-2"/> Download</Button>
                         <Button variant="secondary" size="sm">Upscale</Button>
                      </div>
+                  </div>
+                ) : (
+                  <div className="text-center space-y-4 p-8">
+                    <Sparkles size={48} className="mx-auto text-muted-foreground/50" />
+                    <p className="text-muted-foreground">Enter a prompt and click Generate to create your model</p>
                   </div>
                 )}
               </div>

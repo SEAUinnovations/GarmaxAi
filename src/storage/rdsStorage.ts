@@ -10,6 +10,7 @@ import {
   subscriptionPlans,
   tryonSessions,
   userAvatars,
+  userPhotos,
   garmentItems,
   virtualWardrobe,
   type User,
@@ -20,6 +21,8 @@ import {
   type InsertTryonSession,
   type UserAvatar,
   type InsertUserAvatar,
+  type UserPhoto,
+  type InsertUserPhoto,
   type GarmentItem,
   type InsertGarmentItem,
   type VirtualWardrobe
@@ -215,6 +218,44 @@ export class RDSStorage implements IStorage {
       return result[0].affectedRows > 0;
     } catch (error) {
       logger.error(`Error cancelling generation ${id}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async updateGenerationStatus(id: string, status: "processing" | "completed" | "failed", errorMessage?: string): Promise<void> {
+    try {
+      const updateData: any = { 
+        status, 
+        updatedAt: new Date() 
+      };
+      
+      // Note: errorMessage would need to be added to schema if we want to persist it
+      // For now, we just update the status
+
+      await this._db.update(generations)
+        .set(updateData)
+        .where(eq(generations.id, id));
+
+      logger.info(`Updated generation ${id} status to ${status}`, 'RDSStorage');
+    } catch (error) {
+      logger.error(`Error updating generation status ${id}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async updateGenerationResult(id: string, resultUrl: string): Promise<void> {
+    try {
+      await this._db.update(generations)
+        .set({ 
+          imageUrl: resultUrl,
+          status: 'completed',
+          updatedAt: new Date() 
+        })
+        .where(eq(generations.id, id));
+
+      logger.info(`Updated generation ${id} with result URL`, 'RDSStorage');
+    } catch (error) {
+      logger.error(`Error updating generation result ${id}: ${error}`, 'RDSStorage');
       throw error;
     }
   }
@@ -490,6 +531,103 @@ export class RDSStorage implements IStorage {
       return deleted;
     } catch (error) {
       logger.error(`Error deleting user avatar ${id}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  // Photo Methods
+  async createUserPhoto(photo: InsertUserPhoto): Promise<UserPhoto> {
+    try {
+      const photoId = crypto.randomUUID();
+      await this._db.insert(userPhotos).values({
+        ...photo,
+        id: photoId,
+        smplProcessed: false,
+        smplDataUrl: null,
+        smplConfidence: null,
+        smplMetadata: null,
+        thumbnailUrl: photo.thumbnailUrl || null,
+      });
+
+      const createdPhoto = await this._db.select()
+        .from(userPhotos)
+        .where(eq(userPhotos.id, photoId))
+        .limit(1);
+
+      if (!createdPhoto[0]) {
+        throw new Error('Failed to retrieve created photo');
+      }
+
+      logger.info(`Created user photo: ${photoId}`, 'RDSStorage');
+      return createdPhoto[0] as UserPhoto;
+    } catch (error) {
+      logger.error(`Error creating user photo: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async getUserPhoto(id: string): Promise<UserPhoto | undefined> {
+    try {
+      const result = await this._db.select()
+        .from(userPhotos)
+        .where(eq(userPhotos.id, id))
+        .limit(1);
+      return result[0] as UserPhoto | undefined;
+    } catch (error) {
+      logger.error(`Error getting user photo ${id}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async getUserPhotos(userId: string): Promise<UserPhoto[]> {
+    try {
+      const result = await this._db.select()
+        .from(userPhotos)
+        .where(eq(userPhotos.userId, userId))
+        .orderBy(desc(userPhotos.createdAt));
+
+      return result as UserPhoto[];
+    } catch (error) {
+      logger.error(`Error getting photos for user ${userId}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async updateUserPhoto(id: string, data: Partial<UserPhoto>): Promise<UserPhoto> {
+    try {
+      await this._db.update(userPhotos)
+        .set(data)
+        .where(eq(userPhotos.id, id));
+
+      const updated = await this._db.select()
+        .from(userPhotos)
+        .where(eq(userPhotos.id, id))
+        .limit(1);
+
+      if (!updated[0]) {
+        throw new Error(`Photo ${id} not found after update`);
+      }
+
+      logger.info(`Updated user photo: ${id}`, 'RDSStorage');
+      return updated[0] as UserPhoto;
+    } catch (error) {
+      logger.error(`Error updating user photo ${id}: ${error}`, 'RDSStorage');
+      throw error;
+    }
+  }
+
+  async deleteUserPhoto(id: string): Promise<boolean> {
+    try {
+      const result = await this._db.delete(userPhotos)
+        .where(eq(userPhotos.id, id));
+
+      const deleted = result[0].affectedRows > 0;
+      if (deleted) {
+        logger.info(`Deleted user photo: ${id}`, 'RDSStorage');
+      }
+      return deleted;
+    } catch (error) {
+      logger.error(`Error deleting user photo ${id}: ${error}`, 'RDSStorage');
       throw error;
     }
   }
