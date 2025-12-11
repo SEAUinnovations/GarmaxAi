@@ -10,6 +10,10 @@ import { randomUUID } from "crypto";
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || "us-east-1",
+  ...(process.env.LOCALSTACK_ENDPOINT && {
+    endpoint: process.env.LOCALSTACK_ENDPOINT,
+    forcePathStyle: true, // Required for LocalStack
+  }),
 });
 
 const BUCKET_NAME = process.env.S3_BUCKET || "user-uploads";

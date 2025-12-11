@@ -30,12 +30,13 @@ import { logger } from '../utils/winston-logger';
 
 export class RDSStorage implements IStorage {
   private _db: ReturnType<typeof drizzle>;
-  private connection: mysql.Connection;
+  private connection!: mysql.Connection;
+  private connectionString: string;
 
   constructor(connectionString: string) {
-    // Create connection properly
-    this.connection = mysql.createConnection(connectionString) as any;
-    this._db = drizzle(this.connection);
+    this.connectionString = connectionString;
+    // Initialize with placeholder - actual connection happens in connect()
+    this._db = null as any;
   }
 
   // Getter to expose db instance for services that need direct access
@@ -43,7 +44,9 @@ export class RDSStorage implements IStorage {
     return this._db;
   }  async connect(): Promise<void> {
     try {
-      // Connection is already established in constructor for mysql2
+      // Create connection properly - await the Promise
+      this.connection = await mysql.createConnection(this.connectionString);
+      this._db = drizzle(this.connection);
       logger.info('Connected to RDS Aurora MySQL', 'RDSStorage');
     } catch (error) {
       logger.error(`Failed to connect to RDS: ${error}`, 'RDSStorage');

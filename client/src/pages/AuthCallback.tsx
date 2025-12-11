@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 /**
  * AuthCallback - Handles OAuth callback from Cognito/Google
@@ -11,9 +13,19 @@ export default function AuthCallback() {
   const [, setLocation] = useLocation();
   const { login } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const hasProcessed = useRef(false);
 
   useEffect(() => {
     const handleCallback = async () => {
+      // Prevent duplicate exchanges (React StrictMode runs effects twice)
+      if (hasProcessed.current) {
+        console.log('[AuthCallback] Already processed, skipping duplicate call');
+        return;
+      }
+      
+      console.log('[AuthCallback] Starting OAuth callback processing');
+      hasProcessed.current = true;
+      
       try {
         // Parse URL parameters
         const params = new URLSearchParams(window.location.search);
@@ -21,6 +33,13 @@ export default function AuthCallback() {
         const state = params.get("state");
         const errorParam = params.get("error");
         const errorDescription = params.get("error_description");
+
+        console.log('[AuthCallback] Parsed params:', { 
+          hasCode: !!code, 
+          codePreview: code?.substring(0, 10) + '...',
+          state, 
+          errorParam 
+        });
 
         // Handle OAuth errors
         if (errorParam) {
@@ -31,8 +50,11 @@ export default function AuthCallback() {
           throw new Error("No authorization code received");
         }
 
+        console.log('[AuthCallback] Exchanging authorization code...');
+        const exchangeStartTime = Date.now();
+
         // Exchange authorization code for tokens via your backend
-        const response = await fetch("/api/auth/callback", {
+        const response = await fetch(`${API_BASE_URL}/auth/oauth/callback`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -45,34 +67,40 @@ export default function AuthCallback() {
           credentials: "include",
         });
 
+        const exchangeDuration = Date.now() - exchangeStartTime;
+        console.log(`[AuthCallback] Token exchange took ${exchangeDuration}ms, status: ${response.status}`);
+
         if (!response.ok) {
           const errorData = await response.json();
+          console.error('[AuthCallback] Token exchange failed:', errorData);
           throw new Error(errorData.message || "Failed to authenticate");
         }
 
         const data = await response.json();
 
-        // Update auth context with user data
-        if (data.user && data.accessToken) {
-          // Store tokens
-          localStorage.setItem("auth_token", data.accessToken);
-          if (data.idToken) {
-            localStorage.setItem("idToken", data.idToken);
-          }
-          if (data.refreshToken) {
-            localStorage.setItem("refreshToken", data.refreshToken);
-          }
-
-          // Set user directly (OAuth login doesn't need email/password)
-          // The backend has already validated the user via OAuth
-          window.location.href = state || "/dashboard";
-        } else {
+        // Validate we have all required data
+        if (!data.user || !data.idToken) {
           throw new Error("Invalid response from server");
         }
 
-        // Redirect to dashboard or original destination
+        console.log('[AuthCallback] Authentication successful, user:', data.user.email);
+
+        // Store tokens in localStorage
+        // Use id_token as the primary auth token because it contains user claims (email, name, etc.)
+        // Access tokens only contain 'sub' and are meant for API authorization
+        localStorage.setItem("auth_token", data.idToken);
+        if (data.accessToken) {
+          localStorage.setItem("accessToken", data.accessToken);
+        }
+        if (data.refreshToken) {
+          localStorage.setItem("refreshToken", data.refreshToken);
+        }
+
+        console.log('[AuthCallback] Redirecting to dashboard');
+        
+        // Redirect to dashboard
         const returnTo = state || "/dashboard";
-        setLocation(returnTo);
+        window.location.href = returnTo;
       } catch (err) {
         console.error("OAuth callback error:", err);
         setError(err instanceof Error ? err.message : "Authentication failed");
@@ -85,7 +113,7 @@ export default function AuthCallback() {
     };
 
     handleCallback();
-  }, [login, setLocation]);
+  }, []); // Empty dependency array - only run once
 
   if (error) {
     return (

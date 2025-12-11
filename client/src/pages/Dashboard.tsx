@@ -36,7 +36,7 @@ export default function Dashboard() {
       <aside className="w-64 border-r border-white/10 bg-card flex-col hidden md:flex">
         <div className="p-6 border-b border-white/10">
           <Link href="/" className="flex items-center gap-3 group">
-            <img src="/LOGOSVG.svg" alt="Garmax" className="w-6 h-6 group-hover:scale-110 transition-transform" />
+            <img src="/logo3.jpg" alt="Garmax" className="w-6 h-6 group-hover:scale-110 transition-transform" />
             <span className="font-serif text-xl font-bold">Garmax</span>
           </Link>
         </div>

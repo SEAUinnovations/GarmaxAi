@@ -27,6 +27,11 @@ export async function handleOAuthCallback(req: Request, res: Response) {
       return res.status(500).json({ message: 'Server configuration error' });
     }
 
+    // The redirect_uri MUST match exactly what was used in the initial OAuth request
+    const finalRedirectUri = redirectUri || `${process.env.FRONTEND_URL}/auth/callback`;
+    
+    logger.info(`OAuth callback received - code: ${code.substring(0, 10)}..., redirectUri: ${finalRedirectUri}`, 'AuthController');
+
     // Exchange authorization code for tokens
     const tokenEndpoint = `https://${COGNITO_DOMAIN}/oauth2/token`;
     
@@ -34,7 +39,7 @@ export async function handleOAuthCallback(req: Request, res: Response) {
       grant_type: 'authorization_code',
       client_id: CLIENT_ID,
       code: code,
-      redirect_uri: redirectUri || `${process.env.FRONTEND_URL}/auth/callback`,
+      redirect_uri: finalRedirectUri,
     });
 
     const tokenResponse = await fetch(tokenEndpoint, {
@@ -46,37 +51,39 @@ export async function handleOAuthCallback(req: Request, res: Response) {
     });
 
     if (!tokenResponse.ok) {
-      const error = await tokenResponse.text();
-      logger.error(`Token exchange failed: ${error}`, 'AuthController');
-      return res.status(400).json({ message: 'Failed to exchange authorization code' });
+      const errorText = await tokenResponse.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { raw: errorText };
+      }
+      logger.error(`Token exchange failed: ${tokenResponse.status} - ${JSON.stringify(errorData)}`, 'AuthController');
+      return res.status(400).json({ 
+        message: 'Failed to exchange authorization code',
+        details: process.env.NODE_ENV === 'development' ? errorData : undefined
+      });
     }
 
     const tokens = await tokenResponse.json();
     const { access_token, id_token, refresh_token } = tokens;
 
-    // Get user information using the access token
-    const getUserCommand = new GetUserCommand({
-      AccessToken: access_token,
-    });
-
-    const userResponse = await cognitoClient.send(getUserCommand);
-
-    // Extract user attributes
-    const userAttributes = userResponse.UserAttributes?.reduce((acc, attr) => {
-      if (attr.Name && attr.Value) {
-        acc[attr.Name] = attr.Value;
-      }
-      return acc;
-    }, {} as Record<string, string>);
+    // Decode the id_token to get user information
+    // id_token is a JWT with user claims - we can decode it without verification
+    // since it came directly from Cognito's token endpoint
+    const base64Payload = id_token.split('.')[1];
+    const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
+    
+    logger.info(`Decoded id_token for user: ${payload.email}`, 'AuthController');
 
     // Check if user exists in database, create if not
     const user = await findOrCreateUserFromCognito({
-      cognitoId: userResponse.Username!,
-      email: userAttributes?.email || '',
-      emailVerified: userAttributes?.email_verified === 'true',
-      givenName: userAttributes?.given_name,
-      familyName: userAttributes?.family_name,
-      picture: userAttributes?.picture,
+      cognitoId: payload.sub, // Cognito user ID from 'sub' claim
+      email: payload.email || '',
+      emailVerified: payload.email_verified === true || payload.email_verified === 'true',
+      givenName: payload.given_name,
+      familyName: payload.family_name,
+      picture: payload.picture,
     });
 
     logger.info(`OAuth login successful for user: ${user.email}`, 'AuthController');

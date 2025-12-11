@@ -24,7 +24,7 @@ export function Navbar() {
       <div className="container mx-auto px-6 h-20 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3 group">
-            <img src="/LOGOSVG.svg" alt="Garmax" className="w-8 h-8 group-hover:scale-110 transition-transform" />
+            <img src="/logo3.jpg" alt="Garmax" className="w-8 h-8 group-hover:scale-110 transition-transform" />
           <span className="font-serif text-2xl font-bold tracking-tight">Garmax</span>
         </Link>
 

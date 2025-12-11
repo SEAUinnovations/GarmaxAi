@@ -39,17 +39,29 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
   }
 
   try {
-    // Verify token with Cognito by making a GetUser call
-    const getUserCommand = new GetUserCommand({
-      AccessToken: token
-    });
+    // Decode the access token (JWT) to get user info
+    // Access tokens from Cognito are JWTs with user claims
+    const base64Payload = token.split('.')[1];
+    if (!base64Payload) {
+      return res.status(401).json({ 
+        error: 'Invalid token format',
+        code: 'INVALID_TOKEN' 
+      });
+    }
     
-    const cognitoUser = await cognitoClient.send(getUserCommand);
+    const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
     
-    // Extract user info from Cognito response
-    const email = cognitoUser.UserAttributes?.find(attr => attr.Name === 'email')?.Value;
-    const emailVerified = cognitoUser.UserAttributes?.find(attr => attr.Name === 'email_verified')?.Value === 'true';
+    // Check token expiration
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < now) {
+      return res.status(401).json({ 
+        error: 'Token has expired',
+        code: 'TOKEN_EXPIRED' 
+      });
+    }
     
+    // Extract email from token (could be in 'email' or 'username' claim)
+    const email = payload.email || payload.username;
     if (!email) {
       return res.status(401).json({ 
         error: 'Invalid token - no email found',
@@ -57,45 +69,29 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
       });
     }
     
-    // Get or create local user record
-    let user = await storage.getUserByEmail(email);
+    // Get user from database
+    const user = await storage.getUserByEmail(email);
     if (!user) {
-      // Create user record if it doesn't exist
-      const displayName = cognitoUser.UserAttributes?.find(attr => attr.Name === 'custom:display_name')?.Value || 
-                         cognitoUser.UserAttributes?.find(attr => attr.Name === 'name')?.Value ||
-                         email.split('@')[0];
-      
-      user = await storage.createUser({
-        username: displayName,
-        email,
-        password: 'cognito_managed',
-        emailVerified,
-        trialExpiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-        trialStatus: 'active'
+      return res.status(401).json({ 
+        error: 'User not found',
+        code: 'USER_NOT_FOUND' 
       });
     }
     
     // Attach user info to request for use in route handlers
     (req as any).userId = user.id;
     (req as any).userEmail = email;
-    (req as any).cognitoSub = cognitoUser.Username;
+    (req as any).cognitoSub = payload.sub;
     
     logger.info(`Authenticated request for user: ${user.id} (${email})`, 'authMiddleware');
     next();
   } catch (error: any) {
-    logger.error(`Cognito authentication error: ${error}`, 'authMiddleware');
+    logger.error(`JWT authentication error: ${error}`, 'authMiddleware');
     
-    if (error.name === 'NotAuthorizedException') {
-      return res.status(401).json({ 
-        error: 'Token has expired or is invalid',
-        code: 'TOKEN_EXPIRED' 
-      });
-    } else {
-      return res.status(500).json({ 
-        error: 'Authentication failed',
-        code: 'AUTH_ERROR' 
-      });
-    }
+    return res.status(401).json({ 
+      error: 'Token validation failed',
+      code: 'INVALID_TOKEN' 
+    });
   }
 }
 
@@ -112,18 +108,27 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
   }
 
   try {
-    const getUserCommand = new GetUserCommand({
-      AccessToken: token
-    });
+    // Decode JWT token
+    const base64Payload = token.split('.')[1];
+    if (!base64Payload) {
+      return next(); // Invalid format, continue without auth
+    }
     
-    const cognitoUser = await cognitoClient.send(getUserCommand);
-    const email = cognitoUser.UserAttributes?.find(attr => attr.Name === 'email')?.Value;
+    const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
     
+    // Check expiration
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < now) {
+      return next(); // Expired token, continue without auth
+    }
+    
+    const email = payload.email || payload.username;
     if (email) {
       const user = await storage.getUserByEmail(email);
       if (user) {
         (req as any).userId = user.id;
         (req as any).userEmail = email;
+        (req as any).cognitoSub = payload.sub;
         logger.info(`Optional auth: authenticated user ${user.id}`, 'authMiddleware');
       }
     }

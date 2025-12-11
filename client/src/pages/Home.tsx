@@ -216,7 +216,7 @@ export default function Home() {
       <footer className="border-t border-white/10 py-12 bg-black">
         <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center">
           <div className="flex items-center gap-2 mb-4 md:mb-0">
-             <img src="/LOGOSVG.svg" alt="Garmax" className="w-6 h-6" />
+             <img src="/logo3.jpg" alt="Garmax" className="w-6 h-6" />
             <span className="font-serif font-bold">Garmax</span>
           </div>
           <div className="text-sm text-muted-foreground">

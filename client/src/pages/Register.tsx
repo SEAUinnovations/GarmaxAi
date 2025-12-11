@@ -92,7 +92,7 @@ export default function Register() {
         {/* Header */}
         <div className="mb-12 text-center">
           <Link href="/" className="inline-flex items-center gap-3 group mb-8">
-            <img src="/LOGOSVG.svg" alt="Garmax" className="w-10 h-10 group-hover:scale-110 transition-transform" />
+            <img src="/logo3.jpg" alt="Garmax" className="w-10 h-10 group-hover:scale-110 transition-transform" />
             <span className="font-serif text-3xl font-bold tracking-tight">Garmax</span>
           </Link>
 
