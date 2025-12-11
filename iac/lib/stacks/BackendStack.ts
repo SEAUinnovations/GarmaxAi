@@ -5,6 +5,8 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import createPythonLambda from '../Lambda/createLambda';
 import createApiGateway from '../Api/createApiGateway';
@@ -189,6 +191,27 @@ export class BackendStack extends cdk.Stack {
         parameterName: `/garmaxai/${props.stage}/api/domain-name`,
         stringValue: apiDomain.domainName,
         description: 'API Gateway custom domain name',
+      });
+
+      // Create Route53 A Record (Alias) to point to API Gateway custom domain
+      const hostedZone = route53.HostedZone.fromLookup(this, `BackendHostedZone-${props.stage}`, {
+        domainName: props.envConfig.hostedZoneName,
+      });
+
+      new route53.ARecord(this, `BackendApiAliasRecord-${props.stage}`, {
+        zone: hostedZone,
+        recordName: backendDomain,
+        target: route53.RecordTarget.fromAlias(
+          new route53Targets.ApiGatewayDomain(apiDomain)
+        ),
+        comment: `API Gateway custom domain alias for ${props.stage} backend`,
+      });
+
+      // Output the backend URL
+      new cdk.CfnOutput(this, `BackendApiUrl-${props.stage}`, {
+        value: `https://${backendDomain}`,
+        description: `Backend API URL (${props.stage})`,
+        exportName: `Backend-ApiUrl-${props.stage}`,
       });
     }
 
