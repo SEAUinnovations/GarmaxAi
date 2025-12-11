@@ -16,6 +16,8 @@ import Pricing from "./pages/Pricing";
 import Account from "./pages/Account";
 import AuthCallback from "./pages/AuthCallback";
 import AuthLogout from "./pages/AuthLogout";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentCancel from "./pages/PaymentCancel";
 
 function Router() {
   return (
@@ -23,6 +25,10 @@ function Router() {
       {/* Public routes */}
       <Route path="/" component={Home}/>
       <Route path="/pricing" component={Pricing}/>
+      
+      {/* Payment result routes */}
+      <Route path="/payment/success" component={PaymentSuccess}/>
+      <Route path="/payment/cancel" component={PaymentCancel}/>
       
       {/* OAuth callback routes */}
       <Route path="/auth/callback" component={AuthCallback}/>

@@ -9,7 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Camera, Download, Grid, LayoutDashboard, Settings, LogOut, Plus, History, User, Sparkles, CreditCard, Coins, Lock, Zap } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Camera, Download, Grid, LayoutDashboard, Settings, LogOut, Plus, History, User, Sparkles, CreditCard, Coins, Lock, Zap, Clock } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,8 @@ export default function Dashboard() {
   const [tryonQuota] = useState({ used: 0, limit: 0 });
   const [trialStatus, setTrialStatus] = useState<string | null>(null);
   const [isOnTrial, setIsOnTrial] = useState(false);
+  const [trialExpiresAt, setTrialExpiresAt] = useState<string | null>(null);
+  const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
 
   // Generation form state
   const [prompt, setPrompt] = useState("");
@@ -49,6 +52,16 @@ export default function Dashboard() {
           setCredits(userData.creditsRemaining || 0);
           setTrialStatus(userData.trialStatus);
           setIsOnTrial(userData.trialStatus === 'active');
+          setTrialExpiresAt(userData.trialExpiresAt);
+          
+          // Calculate days remaining
+          if (userData.trialStatus === 'active' && userData.trialExpiresAt) {
+            const now = new Date();
+            const expiresAt = new Date(userData.trialExpiresAt);
+            const diffTime = expiresAt.getTime() - now.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            setDaysRemaining(diffDays > 0 ? diffDays : 0);
+          }
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
@@ -240,6 +253,30 @@ export default function Dashboard() {
         </header>
 
         <div className="flex-1 overflow-auto p-6">
+          {/* Trial Countdown Banner */}
+          {isOnTrial && daysRemaining !== null && (
+            <Alert className="mb-6 border-amber-500/50 bg-gradient-to-r from-amber-500/10 to-orange-500/10">
+              <Clock className="h-4 w-4 text-amber-500" />
+              <AlertDescription className="flex items-center justify-between">
+                <span className="text-sm">
+                  <span className="font-semibold text-amber-500">
+                    {daysRemaining === 0 
+                      ? "Trial expires today!" 
+                      : `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} left in your trial`}
+                  </span>
+                  <span className="text-muted-foreground ml-2">
+                    Upgrade to keep unlimited access and avoid automatic conversion.
+                  </span>
+                </span>
+                <Link href="/pricing">
+                  <Button size="sm" variant="default" className="ml-4 bg-amber-500 hover:bg-amber-600">
+                    Upgrade Now
+                  </Button>
+                </Link>
+              </AlertDescription>
+            </Alert>
+          )}
+          
           {/* 3D Try-On Studio CTA */}
           <Card className="mb-6 border-accent/50 bg-gradient-to-br from-accent/20 to-accent/5 overflow-hidden">
             <CardContent className="p-6">

@@ -1,20 +1,20 @@
 /**
  * Database Migration: Seed Subscription Plans
  * 
- * Populates subscriptionPlans table with 3 tiers:
- * - Free: 1 avatar, 10 try-ons/month (no Stripe price needed)
- * - Starter: $9.99/month, 3 avatars, 100 try-ons/month
- * - Pro: $29.99/month, 10 avatars, 500 try-ons/month
- * - Premium: $99.99/month, unlimited avatars, unlimited try-ons
+ * Populates subscriptionPlans table with optimized pricing tiers:
+ * - Free: 1 avatar, 5 try-ons/month (no Stripe price needed)
+ * - Studio: $49/month ($41/year), 5 avatars, 100 try-ons/month
+ * - Pro: $149/month ($124/year), unlimited avatars, unlimited try-ons
  * 
  * Usage:
  *   npm run migrate:seed-plans
  * 
  * Environment Variables Required:
  *   - DATABASE_URL or DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
- *   - STRIPE_STARTER_PRICE_ID (from Stripe dashboard)
+ *   - STRIPE_STUDIO_PRICE_ID (from Stripe dashboard)
+ *   - STRIPE_STUDIO_ANNUAL_PRICE_ID (from Stripe dashboard)
  *   - STRIPE_PRO_PRICE_ID (from Stripe dashboard)
- *   - STRIPE_PREMIUM_PRICE_ID (from Stripe dashboard)
+ *   - STRIPE_PRO_ANNUAL_PRICE_ID (from Stripe dashboard)
  */
 
 import { drizzle } from 'drizzle-orm/mysql2';
@@ -35,9 +35,10 @@ const DB_PASSWORD = process.env.DB_PASSWORD || 'garmaxai_password';
 const DB_NAME = process.env.DB_NAME || 'garmaxai';
 
 // Stripe price IDs (must be created in Stripe dashboard first)
-const STRIPE_STARTER_PRICE_ID = process.env.STRIPE_STARTER_PRICE_ID || '';
+const STRIPE_STUDIO_PRICE_ID = process.env.STRIPE_STUDIO_PRICE_ID || '';
+const STRIPE_STUDIO_ANNUAL_PRICE_ID = process.env.STRIPE_STUDIO_ANNUAL_PRICE_ID || '';
 const STRIPE_PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || '';
-const STRIPE_PREMIUM_PRICE_ID = process.env.STRIPE_PREMIUM_PRICE_ID || '';
+const STRIPE_PRO_ANNUAL_PRICE_ID = process.env.STRIPE_PRO_ANNUAL_PRICE_ID || '';
 
 interface SubscriptionPlanSeed {
   id: string;
@@ -56,67 +57,52 @@ const SUBSCRIPTION_PLANS: SubscriptionPlanSeed[] = [
     name: 'Free',
     priceUsd: 0,
     avatarLimit: 1,
-    tryonQuota: 10,
+    tryonQuota: 5,
     maxResolution: 'sd',
     stripePriceId: null, // Free tier doesn't require Stripe
     features: [
       '1 custom avatar',
-      '10 try-ons per month',
+      '5 try-ons per month',
       'Standard quality renders',
+      'Demo photos available',
       'Community support',
     ],
   },
   {
-    id: 'starter',
-    name: 'Starter',
-    priceUsd: 9.99,
-    avatarLimit: 3,
+    id: 'studio',
+    name: 'Studio',
+    priceUsd: 49,
+    avatarLimit: 5,
     tryonQuota: 100,
     maxResolution: 'hd',
-    stripePriceId: STRIPE_STARTER_PRICE_ID,
+    stripePriceId: STRIPE_STUDIO_PRICE_ID,
     features: [
-      '3 custom avatars',
+      '5 custom avatars',
       '100 try-ons per month',
-      'High quality renders',
+      'All quality levels (SD/HD/4K)',
       'Priority processing',
+      'Save to wardrobe',
       'Email support',
+      '25% discount on credits',
     ],
   },
   {
     id: 'pro',
     name: 'Pro',
-    priceUsd: 29.99,
-    avatarLimit: 10,
-    tryonQuota: 500,
-    maxResolution: 'hd',
-    stripePriceId: STRIPE_PRO_PRICE_ID,
-    features: [
-      '10 custom avatars',
-      '500 try-ons per month',
-      'Ultra quality renders',
-      'Highest priority processing',
-      'Advanced customization',
-      'Priority email support',
-      'API access',
-    ],
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    priceUsd: 99.99,
-    avatarLimit: 9999, // "Unlimited" = very high limit
+    priceUsd: 149,
+    avatarLimit: 9999, // Unlimited
     tryonQuota: 9999,
     maxResolution: '4k',
-    stripePriceId: STRIPE_PREMIUM_PRICE_ID,
+    stripePriceId: STRIPE_PRO_PRICE_ID,
     features: [
       'Unlimited avatars',
       'Unlimited try-ons',
-      'Ultra quality renders',
-      'Instant processing',
-      'White-label options',
-      'Dedicated support',
-      'Full API access',
-      'Custom integrations',
+      'All quality levels (SD/HD/4K)',
+      'Instant processing (no queue)',
+      'Advanced wardrobe management',
+      'API access',
+      'Priority support & training',
+      '50% discount on credits',
     ],
   },
 ];

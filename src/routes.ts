@@ -5,6 +5,7 @@ import authRouter from "./routers/authRouter";
 import userRouter from "./routers/userRouter";
 import generationRouter from "./routers/generationRouter";
 import creditsRouter from "./routers/creditsRouter";
+import subscriptionsRouter from "./routers/subscriptionsRouter";
 import { tryonRouter } from "./routers/tryonRouter";
 import { avatarRouter } from "./routers/avatarRouter";
 import { photoRouter } from "./routers/photoRouter";
@@ -27,6 +28,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/users", requireAuth, userRouter);
   app.use("/api/generation", requireAuth, generationRouter);
   app.use("/api/credits", requireAuth, creditsRouter);
+  app.use("/api/subscriptions", requireAuth, subscriptionsRouter);
   app.use("/api/tryon", tryonRouter);
   app.use("/api/tryon/avatars", avatarRouter);
   app.use("/api/tryon/photos", photoRouter);

@@ -162,15 +162,100 @@ export class CreditsService {
    */
   async refundSession(sessionId: string, refundPercent: number): Promise<number> {
     try {
-      // TODO: Implement try-on session storage - return 0 refund for now
+      // Get the session from storage
+      const session = await storage.getTryonSession(sessionId);
+      
+      if (!session) {
+        logger.warn(`Session ${sessionId} not found for refund`, "CreditsService");
+        return 0;
+      }
+
+      // Only refund for failed or error states (automatic refunds for failed renders)
+      if (session.status !== 'failed' && session.status !== 'error') {
+        logger.info(
+          `Session ${sessionId} status is ${session.status}, no automatic refund`,
+          "CreditsService"
+        );
+        return 0;
+      }
+
+      // Check if session used credits (not quota)
+      if (session.usedQuota || session.creditsUsed === 0) {
+        logger.info(
+          `Session ${sessionId} used quota or no credits, no refund needed`,
+          "CreditsService"
+        );
+        return 0;
+      }
+
+      // Check if already refunded
+      if (session.refundedCredits > 0) {
+        logger.warn(
+          `Session ${sessionId} already has ${session.refundedCredits} credits refunded`,
+          "CreditsService"
+        );
+        return 0;
+      }
+
+      // Calculate refund amount
+      const refundAmount = Math.floor(session.creditsUsed * refundPercent);
+      
+      if (refundAmount <= 0) {
+        return 0;
+      }
+
+      // Add credits back to user
+      await this.addCredits(session.userId, refundAmount);
+
+      // Update session with refunded amount
+      await storage.updateTryonSession(sessionId, {
+        refundedCredits: refundAmount,
+      });
+
       logger.info(
-        `Refund requested for session ${sessionId} (${refundPercent * 100}%) - placeholder implementation`,
+        `Refunded ${refundAmount} credits (${refundPercent * 100}%) for session ${sessionId}, user ${session.userId}`,
         "CreditsService"
       );
-      
-      return 0; // No refund until session storage is implemented
+
+      return refundAmount;
     } catch (error) {
       logger.error(`Failed to refund session: ${error}`, "CreditsService");
+      throw error;
+    }
+  }
+
+  /**
+   * Automatic refund for failed renders
+   * Refunds 100% of credits when SMPL processing or rendering fails
+   */
+  async refundFailedSession(sessionId: string, failureReason: string): Promise<number> {
+    try {
+      const session = await storage.getTryonSession(sessionId);
+      
+      if (!session) {
+        logger.warn(`Session ${sessionId} not found for failure refund`, "CreditsService");
+        return 0;
+      }
+
+      // Only refund if status indicates failure
+      if (session.status !== "failed") {
+        logger.warn(
+          `Session ${sessionId} status is ${session.status}, not eligible for failure refund`,
+          "CreditsService"
+        );
+        return 0;
+      }
+
+      const refundAmount = await this.refundSession(sessionId, 1.0); // 100% refund
+
+      logger.info(
+        `Automatic failure refund: ${refundAmount} credits for session ${sessionId}. Reason: ${failureReason}`,
+        "CreditsService"
+      );
+
+      return refundAmount;
+    } catch (error) {
+      logger.error(`Failed to process automatic refund: ${error}`, "CreditsService");
       throw error;
     }
   }

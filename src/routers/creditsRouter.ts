@@ -171,4 +171,44 @@ router.post("/", creditsController.addCredits);
  */
 router.get("/check", creditsController.checkCredits);
 
+/**
+ * @swagger
+ * /credits/purchase:
+ *   post:
+ *     tags: [Credits]
+ *     summary: Create Stripe checkout for credit purchase
+ *     description: Creates a Stripe checkout session for one-time credit purchase
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [credits]
+ *             properties:
+ *               credits:
+ *                 type: integer
+ *                 description: Number of credits to purchase (30, 100, or 500)
+ *                 example: 100
+ *     responses:
+ *       200:
+ *         description: Checkout session created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sessionId:
+ *                   type: string
+ *                 url:
+ *                   type: string
+ *       400:
+ *         description: Invalid credit pack
+ *       401:
+ *         description: Not authenticated
+ */
+router.post("/purchase", creditsController.createCreditPurchase);
+
 export default router;

@@ -70,7 +70,7 @@ export async function register(req: Request, res: Response) {
       email, 
       password: 'cognito_managed', // Placeholder since Cognito handles passwords
       emailVerified: false,
-      trialExpiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days trial
+      trialExpiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days trial
       trialStatus: 'active'
     });
 
@@ -162,7 +162,7 @@ export async function login(req: Request, res: Response) {
         email: userEmail!,
         password: 'cognito_managed',
         emailVerified: cognitoUser.UserAttributes?.find(attr => attr.Name === 'email_verified')?.Value === 'true',
-        trialExpiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        trialExpiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days trial
         trialStatus: 'active'
       });
       
@@ -339,7 +339,7 @@ export async function verifyTrialEmail(req: Request, res: Response) {
         email,
         password: 'cognito_managed',
         emailVerified: true,
-        trialExpiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        trialExpiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days trial
         trialStatus: 'active'
       });
       

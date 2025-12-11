@@ -166,9 +166,9 @@ export default function Home() {
           <h2 className="text-4xl md:text-5xl font-serif font-bold mb-16">Simple Pricing</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {[
-              { name: "Studio", price: "29", features: ["50 Try-Ons / mo", "25 Photo Uploads", "HD Resolution", "Personal License"] },
-              { name: "Pro", price: "79", features: ["200 Try-Ons / mo", "Unlimited Photos", "4K Resolution", "Commercial License", "Priority Processing"], active: true },
-              { name: "Agency", price: "299", features: ["Unlimited Try-Ons", "8K Resolution", "API Access", "Custom Branding", "Dedicated Support"] },
+              { name: "Free", price: "0", features: ["5 Try-Ons / mo", "1 Avatar", "SD Resolution", "Demo Photos"] },
+              { name: "Studio", price: "49", features: ["100 Try-Ons / mo", "5 Avatars", "HD/4K Resolution", "Priority Processing"], active: true },
+              { name: "Pro", price: "149", features: ["Unlimited Try-Ons", "Unlimited Avatars", "4K Resolution", "API Access", "Instant Processing"] },
             ].map((plan, i) => (
               <div key={i} className={`p-8 rounded-2xl border flex flex-col items-center relative ${plan.active ? 'bg-white/5 border-accent' : 'bg-transparent border-white/10'}`}>
                 {plan.active && <span className="absolute -top-3 bg-accent text-accent-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">Popular</span>}

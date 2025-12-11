@@ -15,6 +15,7 @@ export const users = mysqlTable("users", {
   emailVerified: boolean("email_verified").notNull().default(false),
   trialExpiresAt: timestamp("trial_expires_at"),
   trialStatus: varchar("trial_status", { length: 20 }).default("active"), // 'active', 'expired', 'converted', null
+  autoConvertToPlan: varchar("auto_convert_to_plan", { length: 20 }).default("studio"), // 'studio', 'pro'
   subscriptionTier: varchar("subscription_tier", { length: 20 }).notNull().default("free"), // 'free', 'studio', 'pro'
   credits: int("credits").notNull().default(10),
   creditsRemaining: int("credits_remaining").notNull().default(10),
@@ -205,6 +206,223 @@ export const geminiBatchJobs = mysqlTable("gemini_batch_jobs", {
   updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
 });
 
+// Organizations table - for enterprise multi-user accounts
+export const organizations = mysqlTable("organizations", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  
+  // Owner/creator of the organization
+  ownerId: varchar("owner_id", { length: 36 }).notNull().references(() => users.id),
+  
+  // Subscription and billing
+  subscriptionTier: varchar("subscription_tier", { length: 20 }).notNull().default("free"),
+  stripeCustomerId: text("stripe_customer_id"),
+  
+  // Credits shared across organization members
+  credits: int("credits").notNull().default(0),
+  
+  // API rate limits (requests per minute)
+  apiRateLimit: int("api_rate_limit").notNull().default(60), // 60 req/min default
+  
+  // Organization status
+  status: varchar("status", { length: 20 }).notNull().default("active"), // active, suspended, deleted
+  
+  // Contact and billing details
+  billingEmail: varchar("billing_email", { length: 255 }),
+  companyWebsite: text("company_website"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
+// Organization Members table - tracks which users belong to which organizations
+export const organizationMembers = mysqlTable("organization_members", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  organizationId: varchar("organization_id", { length: 36 }).notNull().references(() => organizations.id),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  
+  // Role-based access control
+  role: varchar("role", { length: 20 }).notNull().default("member"), // owner, admin, developer, member
+  
+  // Permissions for granular access control
+  permissions: json("permissions").$type<string[]>().notNull().default(sql`(JSON_ARRAY())`),
+  // Example permissions: ["api:read", "api:write", "apikeys:create", "apikeys:delete", "org:manage"]
+  
+  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
+// API Keys table - for programmatic access to the service
+export const apiKeys = mysqlTable("api_keys", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  
+  // API key belongs to a user within an organization
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  organizationId: varchar("organization_id", { length: 36 }).notNull().references(() => organizations.id),
+  
+  // Key identification (display name for user reference)
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  
+  // Hashed API key (never store plain text)
+  // Format: gxai_live_xxx or gxai_test_xxx (prefix + random string)
+  keyHash: text("key_hash").notNull(),
+  keyPrefix: varchar("key_prefix", { length: 20 }).notNull(), // First 8 chars for display (e.g., "gxai_liv")
+  
+  // Key type and environment
+  environment: varchar("environment", { length: 10 }).notNull().default("live"), // live, test
+  
+  // Scopes define what the API key can access
+  scopes: json("scopes").$type<string[]>().notNull().default(sql`(JSON_ARRAY())`),
+  // Example scopes: ["tryon:create", "tryon:read", "photos:upload", "garments:upload", "wardrobe:read"]
+  
+  // Rate limiting per key (overrides org default if set)
+  rateLimit: int("rate_limit"), // requests per minute (null = use org default)
+  
+  // Usage tracking
+  lastUsedAt: timestamp("last_used_at"),
+  requestCount: int("request_count").notNull().default(0),
+  
+  // Key lifecycle
+  status: varchar("status", { length: 20 }).notNull().default("active"), // active, revoked, expired
+  expiresAt: timestamp("expires_at"), // null = never expires
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: varchar("revoked_by", { length: 36 }).references(() => users.id),
+  revokedReason: text("revoked_reason"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
+// API Key Usage table - detailed per-request tracking for billing and analytics
+export const apiKeyUsage = mysqlTable("api_key_usage", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  
+  apiKeyId: varchar("api_key_id", { length: 36 }).notNull().references(() => apiKeys.id),
+  organizationId: varchar("organization_id", { length: 36 }).notNull().references(() => organizations.id),
+  
+  // Request details
+  endpoint: varchar("endpoint", { length: 255 }).notNull(), // e.g., "/api/v1/tryon/sessions"
+  method: varchar("method", { length: 10 }).notNull(), // GET, POST, PUT, DELETE
+  statusCode: int("status_code").notNull(),
+  
+  // Resource usage
+  creditsUsed: int("credits_used").notNull().default(0),
+  processingTimeMs: int("processing_time_ms"),
+  
+  // Request metadata
+  ipAddress: varchar("ip_address", { length: 45 }), // IPv4 or IPv6
+  userAgent: text("user_agent"),
+  
+  // Error tracking
+  errorMessage: text("error_message"),
+  
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+});
+
+// External Customers table - for e-commerce checkout integration
+// Stores customer data from partner e-commerce platforms
+export const externalCustomers = mysqlTable("external_customers", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  
+  // Which organization/e-commerce company owns this customer
+  organizationId: varchar("organization_id", { length: 36 }).notNull().references(() => organizations.id),
+  
+  // External reference from partner's system (e.g., Shopify customer ID)
+  externalCustomerId: varchar("external_customer_id", { length: 255 }).notNull(),
+  
+  // Customer info (optional, for better UX)
+  email: varchar("email", { length: 255 }),
+  firstName: varchar("first_name", { length: 100 }),
+  lastName: varchar("last_name", { length: 100 }),
+  
+  // Customer's uploaded photos for try-on
+  photoUrls: json("photo_urls").$type<string[]>(), // Array of S3 URLs
+  
+  // Metadata from partner platform
+  metadata: json("metadata"), // Store any additional data from partner
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
+// Cart Try-On Sessions table - for checkout workflow integration
+export const cartTryonSessions = mysqlTable("cart_tryon_sessions", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  
+  // Organization that initiated this try-on
+  organizationId: varchar("organization_id", { length: 36 }).notNull().references(() => organizations.id),
+  
+  // External customer reference
+  externalCustomerId: varchar("external_customer_id", { length: 36 }).notNull().references(() => externalCustomers.id),
+  
+  // Cart/order reference from partner's system
+  cartId: varchar("cart_id", { length: 255 }).notNull(),
+  
+  // Products being tried on (from partner's catalog)
+  cartItems: json("cart_items").$type<Array<{
+    productId: string;
+    variantId: string;
+    name: string;
+    imageUrl: string;
+    category: string; // shirt, pants, dress, etc.
+    quantity: number;
+    price: number;
+    currency: string;
+  }>>().notNull(),
+  
+  // Customer's photo for try-on
+  customerPhotoUrl: text("customer_photo_url").notNull(),
+  customerPhotoS3Key: text("customer_photo_s3_key").notNull(),
+  
+  // Try-on configuration
+  renderQuality: varchar("render_quality", { length: 10 }).notNull().default("hd"), // sd, hd, 4k
+  backgroundScene: varchar("background_scene", { length: 50 }).notNull().default("studio"),
+  
+  // Processing status
+  status: varchar("status", { length: 30 }).notNull().default("queued"),
+  progress: int("progress").notNull().default(0),
+  
+  // Results
+  renderedImageUrl: text("rendered_image_url"),
+  
+  // Webhook for notifying partner when complete
+  webhookUrl: text("webhook_url"),
+  webhookDelivered: boolean("webhook_delivered").notNull().default(false),
+  webhookDeliveredAt: timestamp("webhook_delivered_at"),
+  
+  // Analytics
+  creditsUsed: int("credits_used").notNull().default(0),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+// Webhook Configurations table - for event notifications to partners
+export const webhookConfigurations = mysqlTable("webhook_configurations", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  
+  organizationId: varchar("organization_id", { length: 36 }).notNull().references(() => organizations.id),
+  
+  // Webhook details
+  url: text("url").notNull(),
+  secret: text("secret").notNull(), // For HMAC signature verification
+  
+  // Events to subscribe to
+  events: json("events").$type<string[]>().notNull(),
+  // Example events: ["tryon.completed", "tryon.failed", "credits.low"]
+  
+  // Status and monitoring
+  status: varchar("status", { length: 20 }).notNull().default("active"), // active, disabled
+  failureCount: int("failure_count").notNull().default(0),
+  lastFailureAt: timestamp("last_failure_at"),
+  lastSuccessAt: timestamp("last_success_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = z.object({
   username: z.string().min(1).max(50),
@@ -249,6 +467,60 @@ export const confirmPreviewSchema = z.object({
   approveOverlay: z.boolean(),
 });
 
+export const createOrganizationSchema = z.object({
+  name: z.string().min(1).max(255),
+  slug: z.string().min(3).max(255).regex(/^[a-z0-9-]+$/),
+  billingEmail: z.string().email().optional(),
+  companyWebsite: z.string().url().optional(),
+});
+
+export const createApiKeySchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().max(500).optional(),
+  scopes: z.array(z.string()).min(1),
+  environment: z.enum(["live", "test"]).default("live"),
+  rateLimit: z.number().int().positive().optional(),
+  expiresAt: z.string().datetime().optional(),
+});
+
+export const inviteMemberSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(["admin", "developer", "member"]).default("member"),
+  permissions: z.array(z.string()).optional(),
+});
+
+export const createCartTryonSchema = z.object({
+  externalCustomerId: z.string().min(1).max(255),
+  cartId: z.string().min(1).max(255),
+  cartItems: z.array(z.object({
+    productId: z.string(),
+    variantId: z.string(),
+    name: z.string(),
+    imageUrl: z.string().url(),
+    category: z.enum(["shirt", "pants", "dress", "jacket", "shoes", "hat", "accessory"]),
+    quantity: z.number().int().positive(),
+    price: z.number().positive(),
+    currency: z.string().length(3),
+  })).min(1),
+  customerPhoto: z.string().url(),
+  renderQuality: z.enum(["sd", "hd", "4k"]).default("hd"),
+  backgroundScene: z.enum(["studio", "urban", "outdoor", "custom"]).default("studio"),
+  webhookUrl: z.string().url().optional(),
+});
+
+export const createExternalCustomerSchema = z.object({
+  externalCustomerId: z.string().min(1).max(255),
+  email: z.string().email().optional(),
+  firstName: z.string().max(100).optional(),
+  lastName: z.string().max(100).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+export const createWebhookSchema = z.object({
+  url: z.string().url(),
+  events: z.array(z.string()).min(1),
+});
+
 // Type exports
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -267,6 +539,54 @@ export type TryonSession = typeof tryonSessions.$inferSelect;
 export type InsertTryonSession = typeof tryonSessions.$inferInsert;
 export type GeminiBatchJob = typeof geminiBatchJobs.$inferSelect;
 export type InsertGeminiBatchJob = typeof geminiBatchJobs.$inferInsert;
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = typeof organizations.$inferInsert;
+export type OrganizationMember = typeof organizationMembers.$inferSelect;
+export type InsertOrganizationMember = typeof organizationMembers.$inferInsert;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKey = typeof apiKeys.$inferInsert;
+export type ApiKeyUsage = typeof apiKeyUsage.$inferSelect;
+export type InsertApiKeyUsage = typeof apiKeyUsage.$inferInsert;
+export type ExternalCustomer = typeof externalCustomers.$inferSelect;
+export type InsertExternalCustomer = typeof externalCustomers.$inferInsert;
+export type CartTryonSession = typeof cartTryonSessions.$inferSelect;
+export type InsertCartTryonSession = typeof cartTryonSessions.$inferInsert;
+export type WebhookConfiguration = typeof webhookConfigurations.$inferSelect;
+export type InsertWebhookConfiguration = typeof webhookConfigurations.$inferInsert;
+
+// Payment Transactions table - tracks all payment activity
+export const paymentTransactions = mysqlTable("payment_transactions", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  type: varchar("type", { length: 50 }).notNull(), // 'subscription', 'credit_purchase', 'refund', 'chargeback'
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Amount in USD
+  creditsAmount: int("credits_amount"), // Credits added/refunded (if applicable)
+  stripePaymentId: varchar("stripe_payment_id", { length: 255 }),
+  stripeInvoiceId: varchar("stripe_invoice_id", { length: 255 }),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // 'pending', 'completed', 'failed', 'refunded'
+  metadata: json("metadata"), // Additional transaction details
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
+// Credit Purchases table - tracks one-time credit purchases
+export const creditPurchases = mysqlTable("credit_purchases", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  creditsPurchased: int("credits_purchased").notNull(),
+  bonusCredits: int("bonus_credits").notNull().default(0),
+  amountPaid: decimal("amount_paid", { precision: 10, scale: 2 }).notNull(), // Amount in USD
+  stripeSessionId: varchar("stripe_session_id", { length: 255 }),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // 'pending', 'completed', 'failed', 'refunded'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
+export type InsertPaymentTransaction = typeof paymentTransactions.$inferInsert;
+export type CreditPurchase = typeof creditPurchases.$inferSelect;
+export type InsertCreditPurchase = typeof creditPurchases.$inferInsert;
 
 // Physical profile type for API responses
 export type PhysicalProfile = {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,13 +18,13 @@ export default function Pricing() {
       icon: Sparkles,
       iconColor: "text-white/40",
       features: [
-        { text: "3 photo uploads", included: true },
+        { text: "1 custom avatar", included: true },
         { text: "5 try-ons per month", included: true },
         { text: "Demo photos available", included: true },
         { text: "Buy credits as needed", included: true },
         { text: "SD quality (512×512)", included: true },
-        { text: "Multiple photos", included: false },
-        { text: "Monthly try-on quota", included: false },
+        { text: "Multiple avatars", included: false },
+        { text: "Priority processing", included: false },
         { text: "HD/4K rendering", included: false },
       ],
       cta: "Current Plan",
@@ -34,18 +34,18 @@ export default function Pricing() {
       id: "studio",
       name: "Studio",
       description: "For fashion enthusiasts and casual shoppers",
-      price: { monthly: 29, annual: 24 },
+      price: { monthly: 49, annual: 41 },
       icon: Zap,
       iconColor: "text-accent",
       features: [
-        { text: "25 photo uploads", included: true },
-        { text: "50 try-ons per month", included: true },
+        { text: "5 custom avatars", included: true },
+        { text: "100 try-ons per month", included: true },
         { text: "All quality levels (SD/HD/4K)", included: true },
         { text: "Priority processing", included: true },
         { text: "Save to wardrobe", included: true },
         { text: "Export in all formats", included: true },
         { text: "Email support", included: true },
-        { text: "50% discount on extra credits", included: true },
+        { text: "25% discount on credits", included: true },
       ],
       cta: "Upgrade to Studio",
       highlight: true,
@@ -55,18 +55,18 @@ export default function Pricing() {
       id: "pro",
       name: "Pro",
       description: "For designers, influencers, and businesses",
-      price: { monthly: 79, annual: 66 },
+      price: { monthly: 149, annual: 124 },
       icon: Crown,
       iconColor: "text-yellow-400",
       features: [
-        { text: "Unlimited photo uploads", included: true },
-        { text: "200 try-ons per month", included: true },
+        { text: "Unlimited avatars", included: true },
+        { text: "Unlimited try-ons per month", included: true },
         { text: "All quality levels (SD/HD/4K)", included: true },
         { text: "Instant processing (no queue)", included: true },
         { text: "Advanced wardrobe management", included: true },
         { text: "API access", included: true },
-        { text: "Custom branding", included: true },
         { text: "Priority support & training", included: true },
+        { text: "50% discount on credits", included: true },
       ],
       cta: "Upgrade to Pro",
       highlight: false,
@@ -77,32 +77,104 @@ export default function Pricing() {
   const creditPacks = [
     {
       credits: 30,
-      price: 3,
+      price: 5,
       bonus: 0,
       popular: false,
     },
     {
       credits: 100,
-      price: 10,
-      bonus: 10,
+      price: 15,
+      bonus: 15,
       popular: true,
     },
     {
       credits: 500,
-      price: 40,
-      bonus: 100,
+      price: 60,
+      bonus: 150,
       popular: false,
     },
   ];
 
+  const [, setLocation] = useLocation();
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [loadingCredits, setLoadingCredits] = useState<number | null>(null);
+
   const handleSubscribe = async (planId: string) => {
-    // TODO: Integrate Stripe checkout
-    console.log("Subscribe to:", planId, billingCycle);
+    if (planId === 'free') return;
+    
+    setIsLoading(true);
+    setLoadingPlan(planId);
+    
+    try {
+      const token = localStorage.getItem('id_token');
+      if (!token) {
+        setLocation('/login');
+        return;
+      }
+
+      const response = await fetch('/api/subscriptions/create-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          planId,
+          billingCycle,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
+      }
+
+      const { url } = await response.json();
+      
+      // Redirect to Stripe checkout
+      window.location.href = url;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert('Failed to start checkout. Please try again.');
+      setIsLoading(false);
+      setLoadingPlan(null);
+    }
   };
 
   const handleBuyCredits = async (credits: number) => {
-    // TODO: Integrate Stripe checkout for credits
-    console.log("Buy credits:", credits);
+    setIsLoading(true);
+    setLoadingCredits(credits);
+    
+    try {
+      const token = localStorage.getItem('id_token');
+      if (!token) {
+        setLocation('/login');
+        return;
+      }
+
+      const response = await fetch('/api/credits/purchase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ credits }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
+      }
+
+      const { url } = await response.json();
+      
+      // Redirect to Stripe checkout
+      window.location.href = url;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert('Failed to start checkout. Please try again.');
+      setIsLoading(false);
+      setLoadingCredits(null);
+    }
   };
 
   return (
@@ -240,9 +312,9 @@ export default function Pricing() {
                     variant={plan.id === "free" ? "outline" : "default"}
                     size="lg"
                     onClick={() => handleSubscribe(plan.id)}
-                    disabled={plan.id === "free"}
+                    disabled={plan.id === "free" || isLoading}
                   >
-                    {plan.cta}
+                    {loadingPlan === plan.id ? "Loading..." : plan.cta}
                   </Button>
                 </CardContent>
               </Card>
@@ -301,8 +373,9 @@ export default function Pricing() {
                   className="w-full"
                   variant={pack.popular ? "default" : "outline"}
                   onClick={() => handleBuyCredits(pack.credits)}
+                  disabled={isLoading}
                 >
-                  Buy Credits
+                  {loadingCredits === pack.credits ? "Loading..." : "Buy Credits"}
                 </Button>
               </CardContent>
             </Card>
