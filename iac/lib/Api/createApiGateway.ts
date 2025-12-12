@@ -6,12 +6,11 @@ import { env } from '../../../parameters/config';
 
 export default function createApiGateway(stack: cdk.Stack, lambdaFn: lambda.Function, id = 'ModelMeApi') {
   
-    const api = new apigateway.RestApi(stack, id, {
+  // Remove API Gateway CORS - let Express handle it for proper credentials support
+  // API Gateway's CORS doesn't support dynamic origins with credentials properly
+  const api = new apigateway.RestApi(stack, id, {
     restApiName: `${id}-${env.STAGE}`,
-    defaultCorsPreflightOptions: {
-      allowOrigins: apigateway.Cors.ALL_ORIGINS,
-      allowMethods: apigateway.Cors.ALL_METHODS,
-    },
+    // No defaultCorsPreflightOptions - Express will handle CORS
   });
 
   const integration = new apigateway.LambdaIntegration(lambdaFn);
