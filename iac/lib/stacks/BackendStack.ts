@@ -194,8 +194,9 @@ export class BackendStack extends cdk.Stack {
       });
 
       // Create Route53 A Record (Alias) to point to API Gateway custom domain
+      // Use backend-specific hosted zone (be.garmaxai.com)
       const hostedZone = route53.HostedZone.fromLookup(this, `BackendHostedZone-${props.stage}`, {
-        domainName: props.envConfig.hostedZoneName,
+        domainName: 'be.garmaxai.com',
       });
 
       new route53.ARecord(this, `BackendApiAliasRecord-${props.stage}`, {

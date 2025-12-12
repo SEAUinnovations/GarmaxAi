@@ -20,15 +20,21 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
+logger.info(`CORS allowed origins: ${JSON.stringify(allowedOrigins)}`, 'CORS');
+logger.info(`FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}`, 'CORS');
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
+    logger.info(`CORS checking origin: ${origin} against allowed: ${JSON.stringify(allowedOrigins)}`, 'CORS');
+    
     if (allowedOrigins.includes(origin)) {
+      logger.info(`CORS allowed origin: ${origin}`, 'CORS');
       callback(null, true);
     } else {
-      logger.warn(`CORS blocked origin: ${origin}`, 'CORS');
+      logger.warn(`CORS blocked origin: ${origin}. Allowed origins: ${JSON.stringify(allowedOrigins)}`, 'CORS');
       callback(new Error('Not allowed by CORS'));
     }
   },
