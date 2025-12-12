@@ -153,6 +153,13 @@ echo -e "  ${GREEN}•${NC} Redis:      localhost:6379"
 echo -e "  ${GREEN}•${NC} LocalStack: localhost:4566"
 echo -e "  ${GREEN}•${NC} Adminer:    http://localhost:8080"
 echo ""
+echo -e "${YELLOW}Setting up test user credits...${NC}"
+if npx tsx scripts/ensure-test-user-credits.ts 2>/dev/null; then
+    echo -e "${GREEN}✓ Test user credits configured${NC}"
+else
+    echo -e "${YELLOW}⚠ Test user not found (will be configured on first login)${NC}"
+fi
+echo ""
 echo -e "Next steps:"
 echo -e "  1. ${YELLOW}Edit .env.local${NC} - Add your API keys (Stripe, Replicate)"
 echo -e "  2. ${YELLOW}npm run dev${NC} - Start backend (port 3000)"

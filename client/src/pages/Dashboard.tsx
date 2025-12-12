@@ -94,10 +94,10 @@ export default function Dashboard() {
           return;
         }
 
-        const generation = await response.json();
+        const data = await response.json();
 
-        if (generation.status === "completed") {
-          setGeneratedImageUrl(generation.imageUrl);
+        if (data.generation.status === "completed") {
+          setGeneratedImageUrl(data.generation.imageUrl);
           setIsGenerating(false);
           setCurrentGenerationId(null);
           clearInterval(pollInterval);
@@ -110,7 +110,7 @@ export default function Dashboard() {
             const userData = await userResponse.json();
             setCredits(userData.creditsRemaining || 0);
           }
-        } else if (generation.status === "failed") {
+        } else if (data.generation.status === "failed") {
           console.error("Generation failed");
           alert("Generation failed. Please try again.");
           setIsGenerating(false);

@@ -12,7 +12,7 @@ import { generationSchema } from "@shared/schema";
  */
 export async function createGeneration(req: AuthenticatedRequest, res: Response) {
   try {
-    const userId = req.user?.id;
+    const userId = (req as any).userId;
 
     if (!userId) {
       res.status(401).json({ error: "Unauthorized" });
@@ -68,7 +68,7 @@ export async function createGeneration(req: AuthenticatedRequest, res: Response)
  */
 export async function getGeneration(req: AuthenticatedRequest, res: Response) {
   try {
-    const userId = req.user?.id;
+    const userId = (req as any).userId;
     const { id } = req.params;
 
     if (!userId) {
@@ -83,7 +83,11 @@ export async function getGeneration(req: AuthenticatedRequest, res: Response) {
       return;
     }
 
-    // TODO: Verify generation belongs to user
+    // Verify generation belongs to user
+    if (generation.userId !== userId) {
+      res.status(403).json({ error: "Forbidden: Generation does not belong to user" });
+      return;
+    }
 
     res.status(200).json({ generation });
   } catch (error) {
@@ -99,7 +103,7 @@ export async function getGeneration(req: AuthenticatedRequest, res: Response) {
  */
 export async function getGenerations(req: AuthenticatedRequest, res: Response) {
   try {
-    const userId = req.user?.id;
+    const userId = (req as any).userId;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
 
     if (!userId) {
@@ -126,7 +130,7 @@ export async function getGenerations(req: AuthenticatedRequest, res: Response) {
  */
 export async function cancelGeneration(req: AuthenticatedRequest, res: Response) {
   try {
-    const userId = req.user?.id;
+    const userId = (req as any).userId;
     const { id } = req.params;
 
     if (!userId) {

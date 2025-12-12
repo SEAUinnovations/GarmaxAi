@@ -13,6 +13,7 @@ import { garmentRouter } from "./routers/garmentRouter";
 import { requestLogger } from "./middleware/requestLogger";
 import { setUser, requireAuth } from "./middleware/auth";
 import { errorHandler, notFound } from "./middleware/errorHandler";
+import { ensureTestUserCredits } from "./middleware/testUserCredits";
 import { initializeTryonWebSocket } from "./websocket/tryonWebSocket";
 import paymentsRouter from "./routers/paymentsRouter";
 import { healthRouter } from "./routers/healthRouter";
@@ -28,6 +29,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Middleware
   app.use(requestLogger);
   app.use(setUser);
+  app.use(ensureTestUserCredits);
 
   // API Routes
   app.use("/api/auth", authRouter);
