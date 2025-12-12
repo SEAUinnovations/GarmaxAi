@@ -211,7 +211,7 @@ export class BackendStack extends cdk.Stack {
       new cdk.CfnOutput(this, `BackendApiUrl-${props.stage}`, {
         value: `https://${backendDomain}`,
         description: `Backend API URL (${props.stage})`,
-        exportName: `Backend-ApiUrl-${props.stage}`,
+        exportName: `Backend-CustomDomainUrl-${props.stage}`,
       });
     }
 
