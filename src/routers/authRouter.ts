@@ -375,6 +375,11 @@ router.get("/oauth/google", oauthController.initiateGoogleLogin);
  *       500:
  *         description: Authentication failed
  */
+// Explicit OPTIONS handler for CORS preflight with credentials
+router.options("/oauth/callback", (req, res) => {
+  res.status(204).end();
+});
+
 router.post("/oauth/callback", oauthController.handleOAuthCallback);
 
 export default router;
