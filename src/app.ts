@@ -25,14 +25,18 @@ logger.info(`FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}`, 'C
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
+    // For requests with no origin (mobile apps, Postman, server-to-server)
+    // Use first allowed origin to avoid wildcard with credentials
+    if (!origin) {
+      logger.info('CORS: No origin header, allowing request', 'CORS');
+      return callback(null, allowedOrigins[0] || true);
+    }
     
     logger.info(`CORS checking origin: ${origin} against allowed: ${JSON.stringify(allowedOrigins)}`, 'CORS');
     
     if (allowedOrigins.includes(origin)) {
       logger.info(`CORS allowed origin: ${origin}`, 'CORS');
-      callback(null, true);
+      callback(null, origin); // Return the specific origin, not just true
     } else {
       logger.warn(`CORS blocked origin: ${origin}. Allowed origins: ${JSON.stringify(allowedOrigins)}`, 'CORS');
       callback(new Error('Not allowed by CORS'));
@@ -41,6 +45,7 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Set-Cookie'],
 }));
 
 // Middleware: Parse JSON with raw body preservation
