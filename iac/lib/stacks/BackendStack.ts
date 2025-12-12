@@ -435,7 +435,8 @@ export class BackendStack extends cdk.Stack {
     pythonLambda.addEnvironment('COGNITO_USER_POOL_ID', this.userPool.userPoolId);
     pythonLambda.addEnvironment('COGNITO_CLIENT_ID', this.userPoolClient.userPoolClientId);
     pythonLambda.addEnvironment('COGNITO_IDENTITY_POOL_ID', this.identityPool.ref);
-    pythonLambda.addEnvironment('COGNITO_DOMAIN', this.cognitoDomain.domainName);
+    // Use baseUrl() to get full domain (e.g., garmaxai-prod.auth.us-east-1.amazoncognito.com)
+    pythonLambda.addEnvironment('COGNITO_DOMAIN', this.cognitoDomain.baseUrl().replace('https://', ''));
     pythonLambda.addEnvironment('FRONTEND_URL', `https://${props.envConfig.frontendDomainName}`);
     
     // Add actual values from Parameter Store (not paths)
