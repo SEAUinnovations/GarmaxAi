@@ -281,16 +281,22 @@ export const handler = async (event: TeardownEvent): Promise<any> => {
 
       case 'nat-gateway':
         if (!event.vpcId) throw new Error('vpcId required for NAT Gateway teardown');
-        await teardownNATGateway(stage, event.vpcId);
+        // Skip NAT Gateway teardown for PROD to maintain API connectivity
+        if (stage.toLowerCase() === 'prod') {
+          console.log(`Skipping NAT Gateway teardown for PROD environment`);
+        } else {
+          await teardownNATGateway(stage, event.vpcId);
+        }
         break;
 
       case 'all':
         // Execute all teardowns in parallel for efficiency
+        // Note: NAT Gateway is skipped for PROD to maintain API connectivity
         await Promise.all([
           event.clusterId ? stopRDS(stage, event.clusterId) : Promise.resolve(),
           event.redisClusterId ? teardownElastiCache(stage, event.redisClusterId) : Promise.resolve(),
           event.ecsCluster ? scaleDownECS(stage, event.ecsCluster) : Promise.resolve(),
-          event.vpcId ? teardownNATGateway(stage, event.vpcId) : Promise.resolve(),
+          event.vpcId && stage.toLowerCase() !== 'prod' ? teardownNATGateway(stage, event.vpcId) : Promise.resolve(),
         ]);
         break;
 

@@ -16,7 +16,16 @@ class RedisClient {
   
   private connect() {
     try {
-      const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+      // Build Redis URL from REDIS_URL or REDIS_HOST/REDIS_PORT
+      let redisUrl = process.env.REDIS_URL;
+      if (!redisUrl && process.env.REDIS_HOST) {
+        const redisHost = process.env.REDIS_HOST;
+        const redisPort = process.env.REDIS_PORT || '6379';
+        redisUrl = `redis://${redisHost}:${redisPort}`;
+        logger.info(`Constructing Redis URL from REDIS_HOST: ${redisUrl}`, 'RedisClient');
+      } else if (!redisUrl) {
+        redisUrl = 'redis://localhost:6379';
+      }
       
       this.client = new Redis(redisUrl, {
         enableReadyCheck: false,

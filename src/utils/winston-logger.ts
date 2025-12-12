@@ -19,26 +19,24 @@ const customFormat = printf(({ level, message, timestamp, ...meta }) => {
   return logMessage;
 });
 
-// Create logger instance
-const winstonLogger = winston.createLogger({
-  level: process.env.LOG_LEVEL || "info",
-  format: combine(
-    timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-    errors({ stack: true }),
-    colorize(),
-    customFormat
-  ),
-  defaultMeta: { service: "modelmeai" },
-  transports: [
-    // Console transport
-    new winston.transports.Console({
-      format: combine(
-        timestamp({ format: "HH:mm:ss" }),
-        colorize(),
-        customFormat
-      ),
-    }),
+// Detect Lambda environment
+const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.LAMBDA_TASK_ROOT;
 
+// Configure transports based on environment
+const transports: winston.transport[] = [
+  // Console transport (always enabled, CloudWatch captures this in Lambda)
+  new winston.transports.Console({
+    format: combine(
+      timestamp({ format: "HH:mm:ss" }),
+      colorize(),
+      customFormat
+    ),
+  }),
+];
+
+// Only add file transports when NOT running in Lambda
+if (!isLambda) {
+  transports.push(
     // Error log file
     new winston.transports.File({
       filename: "logs/error.log",
@@ -49,7 +47,6 @@ const winstonLogger = winston.createLogger({
         customFormat
       ),
     }),
-
     // Combined log file
     new winston.transports.File({
       filename: "logs/combined.log",
@@ -58,8 +55,21 @@ const winstonLogger = winston.createLogger({
         errors({ stack: true }),
         customFormat
       ),
-    }),
-  ],
+    })
+  );
+}
+
+// Create logger instance
+const winstonLogger = winston.createLogger({
+  level: process.env.LOG_LEVEL || "info",
+  format: combine(
+    timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+    errors({ stack: true }),
+    colorize(),
+    customFormat
+  ),
+  defaultMeta: { service: "modelmeai" },
+  transports,
 });
 
 // Create logger interface with source parameter

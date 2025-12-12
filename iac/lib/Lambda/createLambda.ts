@@ -3,6 +3,7 @@ import { Runtime, Handler } from 'aws-cdk-lib/aws-lambda';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as ecr_assets from 'aws-cdk-lib/aws-ecr-assets';
 
 interface CreateLambdaProps {
   vpc?: ec2.IVpc;
@@ -48,6 +49,7 @@ export default function createLambda(
     code: lambda.Code.fromAssetImage('../', {
       file: 'Dockerfile.api',
       exclude: ['iac/cdk.out', 'iac/node_modules', 'client/node_modules', 'node_modules', '.git'],
+      platform: ecr_assets.Platform.LINUX_AMD64,
     }),
     timeout: cdk.Duration.seconds(90), // Increased for VPC cold starts
     memorySize: 256,

@@ -425,6 +425,7 @@ export class BackendStack extends cdk.Stack {
     ecsInfrastructure: any
   ) {
     // API Lambda environment
+    pythonLambda.addEnvironment('NODE_ENV', 'production');
     pythonLambda.addEnvironment('EVENTBRIDGE_BUS_NAME', this.tryonEventBus.eventBusName);
     pythonLambda.addEnvironment('SQS_QUEUE_URL', this.tryonQueueUrl);
     pythonLambda.addEnvironment('SQS_BILLING_QUEUE_URL', this.billingQueueUrl);
@@ -436,6 +437,22 @@ export class BackendStack extends cdk.Stack {
     pythonLambda.addEnvironment('COGNITO_IDENTITY_POOL_ID', this.identityPool.ref);
     pythonLambda.addEnvironment('COGNITO_DOMAIN', this.cognitoDomain.domainName);
     pythonLambda.addEnvironment('FRONTEND_URL', `https://${props.envConfig.frontendDomainName}`);
+    
+    // Add actual values from Parameter Store (not paths)
+    pythonLambda.addEnvironment('STRIPE_SECRET_KEY', props.apiKeyParameters.stripeSecretKey.stringValue);
+    pythonLambda.addEnvironment('REPLICATE_API_KEY', props.apiKeyParameters.replicateApiKey.stringValue);
+    pythonLambda.addEnvironment('JWT_SECRET', props.apiKeyParameters.jwtSecret.stringValue);
+    pythonLambda.addEnvironment('INTERNAL_API_KEY', props.apiKeyParameters.internalApiKey.stringValue);
+    
+    // Pass RDS/Redis connection components - application will construct URLs at runtime
+    // RDS credentials come from DATABASE_SECRET_ARN (set below), endpoint from these vars:
+    pythonLambda.addEnvironment('RDS_ENDPOINT', this.rdsCluster.clusterEndpoint.hostname);
+    pythonLambda.addEnvironment('RDS_PORT', this.rdsCluster.clusterEndpoint.port.toString());
+    pythonLambda.addEnvironment('RDS_DATABASE', 'garmaxai');
+    
+    // Redis connection from ElastiCache cluster
+    pythonLambda.addEnvironment('REDIS_HOST', props.elastiCacheEndpoint);
+    pythonLambda.addEnvironment('REDIS_PORT', props.elastiCachePort.toString());
     
     // Try-On Processor environment
     tryonProcessor.addEnvironment('UPLOADS_BUCKET_NAME', props.uploadsBucket.bucketName);

@@ -16,15 +16,22 @@ if (fs.existsSync('.env.local')) {
 
 import type { Express } from "express";
 import { nanoid } from "nanoid";
-import { createServer as createViteServer, createLogger } from "vite";
 
 import runApp from "./app";
 
-import viteConfig from "../vite.config";
-
-const viteLogger = createLogger();
-
 export async function setupVite(app: Express, server: Server) {
+  // Only import and use Vite in development mode
+  if (process.env.NODE_ENV === 'production') {
+    console.log('[Vite] Skipping Vite setup in production mode');
+    return;
+  }
+
+  // Dynamic imports for Vite (only loaded in dev)
+  const { createServer: createViteServer, createLogger } = await import("vite");
+  const viteConfig = (await import("../vite.config.js")).default;
+  
+  const viteLogger = createLogger();
+
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
