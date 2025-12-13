@@ -83,10 +83,8 @@ export class StorageFactory {
           return null;
         }
 
-        logger.info(`Building RDS connection string for ${host}`, 'StorageFactory');
-        // Note: MySQL RDS clusters don't have a default database name
-        // Connect without database and let Drizzle create/use the schema
-        return `mysql://${username}:${password}@${host}:${port}`;
+        logger.info(`Building RDS connection string for ${host}/${database}`, 'StorageFactory');
+        return `mysql://${username}:${password}@${host}:${port}/${database}`;
       } catch (error) {
         logger.error(`Failed to retrieve RDS credentials from Secrets Manager: ${error}`, 'StorageFactory');
         return null;
@@ -103,7 +101,7 @@ export class StorageFactory {
       return null;
     }
 
-    return `mysql://${username}:${password}@${host}:${port}`;
+    return `mysql://${username}:${password}@${host}:${port}/${database}`;
   }
 
   // Method to reset storage instance (useful for testing)
