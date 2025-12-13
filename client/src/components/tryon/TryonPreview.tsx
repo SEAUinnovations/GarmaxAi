@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserPhoto, TryonSession, ProcessingStatus, Garment } from "@/pages/VirtualTryonStudio";
+import { ShareButtons } from "@/components/ShareButtons";
 
 interface TryonPreviewProps {
   session: TryonSession | null;
@@ -192,9 +193,11 @@ function TryonPreview({
               <Button variant="ghost" size="icon" onClick={onFullscreen}>
                 <Maximize2 size={16} />
               </Button>
-              <Button variant="ghost" size="icon" onClick={onDownload}>
-                <Download size={16} />
-              </Button>
+              <ShareButtons
+                imageUrl={session.resultUrl || ''}
+                imageName={`tryon-${session.id}`}
+                sessionId={session.id}
+              />
             </div>
           )}
         </div>

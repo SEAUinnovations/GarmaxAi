@@ -14,6 +14,7 @@ import { Camera, Download, Grid, LayoutDashboard, Settings, LogOut, Plus, Histor
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/UserMenu";
+import { ShareButtons } from "@/components/ShareButtons";
 
 // Assets
 import port1 from "@assets/generated_images/commercial_fashion_portrait_1.png";
@@ -562,14 +563,12 @@ export default function Dashboard() {
                         <div className="absolute bottom-0 left-0 right-0 p-3 space-y-2">
                           <p className="text-xs text-white/80 line-clamp-2">{gen.prompt}</p>
                           <div className="flex items-center gap-2">
-                            <Button 
-                              size="sm" 
-                              variant="secondary" 
+                            <ShareButtons
+                              imageUrl={gen.imageUrl}
+                              imageName={`generation-${gen.id}`}
+                              sessionId={gen.id}
                               className="flex-1"
-                              onClick={() => handleDownload(gen.imageUrl, gen.id)}
-                            >
-                              <Download size={14} className="mr-1" /> Download
-                            </Button>
+                            />
                             <Button 
                               size="sm" 
                               variant="outline" 

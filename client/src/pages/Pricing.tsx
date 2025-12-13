@@ -3,11 +3,18 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Sparkles, Zap, Crown, ArrowLeft } from "lucide-react";
+import { Check, Sparkles, Zap, Crown, ArrowLeft, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Pricing() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  
+  // Separate loading states for better UX
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [loadingCredits, setLoadingCredits] = useState<number | null>(null);
 
   const subscriptionPlans = [
     {

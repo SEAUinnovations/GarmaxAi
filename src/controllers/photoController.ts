@@ -7,6 +7,7 @@ import { nanoid } from "nanoid";
 import sharp from "sharp";
 import { eventBridgeService } from "../services/eventBridgeService";
 import { uploadPhotoSchema } from "@shared/schema";
+import { watermarkService } from "../services/watermarkService";
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || "";
@@ -41,17 +42,25 @@ export async function uploadPhoto(
     const photoS3Key = `user-photos/${userId}/${fileId}.${extension}`;
     const thumbnailS3Key = `user-photos/${userId}/${fileId}_thumb.${extension}`;
 
-    // Create thumbnail
+    // Create thumbnail (no watermark on thumbnails)
     const thumbnailBuffer = await sharp(req.file.buffer)
       .resize(200, 300, { fit: 'cover' })
       .jpeg({ quality: 80 })
       .toBuffer();
 
-    // Upload original photo to S3
+    // Apply watermark to original image based on user subscription tier
+    const user = req.user;
+    const subscriptionTier = user?.subscriptionTier || 'free';
+    const watermarkedBuffer = await watermarkService.applyWatermark(
+      req.file.buffer,
+      subscriptionTier
+    );
+
+    // Upload watermarked photo to S3
     await s3Client.send(new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: photoS3Key,
-      Body: req.file.buffer,
+      Body: watermarkedBuffer,
       ContentType: req.file.mimetype,
     }));
 
