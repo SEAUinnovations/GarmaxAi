@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -39,6 +40,9 @@ export default function Account() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [isLoadingPortal, setIsLoadingPortal] = useState(false);
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [isSavingUsername, setIsSavingUsername] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -75,6 +79,40 @@ export default function Account() {
   const handleLogout = () => {
     logout();
     setLocation('/login');
+  };
+
+  const handleUpdateUsername = async () => {
+    if (!newUsername.trim() || newUsername === userData?.username) {
+      setIsEditingUsername(false);
+      return;
+    }
+
+    setIsSavingUsername(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/users/profile', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username: newUsername.trim() }),
+      });
+
+      if (response.ok) {
+        const updatedData = await response.json();
+        setUserData({ ...userData!, username: updatedData.username });
+        setIsEditingUsername(false);
+      } else {
+        const error = await response.json();
+        alert(error.message || 'Failed to update username');
+      }
+    } catch (error) {
+      console.error('Error updating username:', error);
+      alert('Failed to update username');
+    } finally {
+      setIsSavingUsername(false);
+    }
   };
 
   // Show loading state while fetching user data
@@ -292,7 +330,48 @@ export default function Account() {
                         <User className="w-5 h-5 text-muted-foreground" />
                         <div className="flex-1">
                           <div className="text-sm text-muted-foreground">Username</div>
-                          <div className="font-medium">{userData.username}</div>
+                          {isEditingUsername ? (
+                            <div className="flex items-center gap-2 mt-1">
+                              <Input
+                                value={newUsername}
+                                onChange={(e) => setNewUsername(e.target.value)}
+                                className="h-8 max-w-xs"
+                                placeholder="Enter new username"
+                                autoFocus
+                              />
+                              <Button
+                                size="sm"
+                                onClick={handleUpdateUsername}
+                                disabled={isSavingUsername}
+                              >
+                                {isSavingUsername ? 'Saving...' : 'Save'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setIsEditingUsername(false);
+                                  setNewUsername('');
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="font-medium">{userData.username}</div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setNewUsername(userData.username || '');
+                                  setIsEditingUsername(true);
+                                }}
+                              >
+                                Edit
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

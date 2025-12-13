@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Camera, Download, Grid, LayoutDashboard, Settings, LogOut, Plus, History, User, Sparkles, CreditCard, Coins, Lock, Zap, Clock } from "lucide-react";
+import { Camera, Download, Grid, LayoutDashboard, Settings, LogOut, Plus, History, User, Sparkles, CreditCard, Coins, Lock, Zap, Clock, Trash2, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/UserMenu";
@@ -39,6 +39,12 @@ export default function Dashboard() {
   const [hdMode, setHdMode] = useState(false);
   const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+
+  // History state
+  const [generations, setGenerations] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [generationToDelete, setGenerationToDelete] = useState<string | null>(null);
 
   // Fetch user data on mount
   useEffect(() => {
@@ -70,6 +76,84 @@ export default function Dashboard() {
     };
     fetchUserData();
   }, []);
+
+  // Fetch generations when history tab is active
+  useEffect(() => {
+    if (activeTab === "history") {
+      fetchGenerations();
+    }
+  }, [activeTab]);
+
+  const fetchGenerations = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch("/api/generation", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        // Filter only completed generations with images
+        const completedGens = (data.generations || []).filter(
+          (g: any) => g.status === 'completed' && g.imageUrl
+        );
+        setGenerations(completedGens);
+      }
+    } catch (error) {
+      console.error("Error fetching generations:", error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  // Download handler
+  const handleDownload = async (imageUrl: string, generationId: string) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `garmax-${generationId}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading image:", error);
+      alert("Failed to download image");
+    }
+  };
+
+  // Delete handlers
+  const handleDeleteConfirm = (generationId: string) => {
+    setGenerationToDelete(generationId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!generationToDelete) return;
+    
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch(`/api/generation/${generationToDelete}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        // Remove from local state
+        setGenerations(prev => prev.filter(g => g.id !== generationToDelete));
+        setDeleteDialogOpen(false);
+        setGenerationToDelete(null);
+      } else {
+        alert("Failed to delete generation");
+      }
+    } catch (error) {
+      console.error("Error deleting generation:", error);
+      alert("Failed to delete generation");
+    }
+  };
 
   // Calculate credit cost based on quality and HD mode
   const calculateCreditCost = (): number => {
@@ -430,7 +514,13 @@ export default function Dashboard() {
                      <img src={generatedImageUrl} className="max-h-full max-w-full object-contain shadow-2xl rounded-lg" alt="Generated Result" />
                      
                      <div className="absolute bottom-8 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <Button variant="secondary" size="sm"><Download size={16} className="mr-2"/> Download</Button>
+                        <Button 
+                          variant="secondary" 
+                          size="sm"
+                          onClick={() => currentGenerationId && handleDownload(generatedImageUrl, currentGenerationId)}
+                        >
+                          <Download size={16} className="mr-2"/> Download
+                        </Button>
                         <Button variant="secondary" size="sm">Upscale</Button>
                      </div>
                   </div>
@@ -444,16 +534,85 @@ export default function Dashboard() {
 
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {[port1, port2, port3, port1, port2, port3].map((img, i) => (
-                <div key={i} className="aspect-[3/4] rounded-lg overflow-hidden relative group border border-white/10 bg-card">
-                  <img src={img} className="w-full h-full object-cover" alt={`History ${i}`} />
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <Button size="icon" variant="outline" className="rounded-full border-white/20 hover:bg-white hover:text-black"><Download size={16} /></Button>
-                    <Button size="icon" variant="outline" className="rounded-full border-white/20 hover:bg-white hover:text-black"><Sparkles size={16} /></Button>
+            // History Tab
+            <div className="space-y-4">
+              {isLoadingHistory ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="text-center space-y-4">
+                    <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"/>
+                    <p className="text-muted-foreground">Loading your generations...</p>
                   </div>
                 </div>
-              ))}
+              ) : generations.length === 0 ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="text-center space-y-4">
+                    <History size={48} className="mx-auto text-muted-foreground/50" />
+                    <p className="text-muted-foreground">No generations yet</p>
+                    <Button onClick={() => setActiveTab("generate")} variant="outline">
+                      Create Your First Model
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {generations.map((gen) => (
+                    <div key={gen.id} className="aspect-[3/4] rounded-lg overflow-hidden relative group border border-white/10 bg-card">
+                      <img src={gen.imageUrl} className="w-full h-full object-cover" alt={gen.prompt || "Generated image"} />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute bottom-0 left-0 right-0 p-3 space-y-2">
+                          <p className="text-xs text-white/80 line-clamp-2">{gen.prompt}</p>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="secondary" 
+                              className="flex-1"
+                              onClick={() => handleDownload(gen.imageUrl, gen.id)}
+                            >
+                              <Download size={14} className="mr-1" /> Download
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                              onClick={() => handleDeleteConfirm(gen.id)}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Badge variant="secondary" className="text-xs">
+                          {gen.quality}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Delete Confirmation Dialog */}
+              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent className="bg-card border-white/10">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <AlertCircle className="text-red-400" size={20} />
+                      Delete Generation
+                    </DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to delete this generation? This action cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter className="gap-2">
+                    <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button variant="destructive" onClick={handleDelete}>
+                      Delete
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
         </div>

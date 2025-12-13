@@ -75,7 +75,7 @@ export default function VirtualTryonStudio() {
     const websocket = new WebSocket(wsUrl);
     
     websocket.onopen = () => {
-      console.log('WebSocket connected to try-on service');
+      console.log('[WebSocket] Connected to try-on service');
       toast({
         title: "Connected",
         description: "Real-time updates enabled"
@@ -85,13 +85,26 @@ export default function VirtualTryonStudio() {
     websocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('[WebSocket] Message received:', data);
         
         // Handle different types of WebSocket messages
         if (data.type === 'connected') {
-          console.log('WebSocket connection confirmed');
+          console.log('[WebSocket] Connection confirmed');
+        } else if (data.type === 'subscribed') {
+          console.log(`[WebSocket] Subscribed to session ${data.sessionId}`);
+        } else if (data.type === 'unsubscribed') {
+          console.log(`[WebSocket] Unsubscribed from session ${data.sessionId}`);
+        } else if (data.type === 'error') {
+          console.error('[WebSocket] Error:', data.message);
+          toast({
+            title: "Connection Error",
+            description: data.message || "WebSocket error occurred",
+            variant: "destructive"
+          });
         } else if (data.sessionId) {
           // This is a session status update
           // Update current session state with new progress/status
+          console.log(`[WebSocket] Session update for ${data.sessionId}:`, data.status, data.progress);
           setCurrentSession(prev => {
             if (prev?.id === data.sessionId) {
               return {
@@ -106,17 +119,27 @@ export default function VirtualTryonStudio() {
           });
         }
       } catch (error) {
-        console.error('Failed to parse WebSocket message:', error);
+        console.error('[WebSocket] Failed to parse message:', error);
       }
     };
 
     websocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      console.error('[WebSocket] Connection error:', error);
+      toast({
+        title: "Connection Issue",
+        description: "WebSocket error - updates may be delayed",
+        variant: "destructive"
+      });
       // Fallback to polling if WebSocket fails
     };
 
     websocket.onclose = () => {
-      console.log('WebSocket disconnected');
+      console.log('[WebSocket] Connection closed');
+      toast({
+        title: "Disconnected",
+        description: "Real-time updates paused",
+        variant: "destructive"
+      });
       // Attempt to reconnect after 5 seconds
       setTimeout(() => {
         if (document.visibilityState === 'visible') {

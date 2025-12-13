@@ -9,7 +9,7 @@ class UserProfileApiService {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
       },
     });
 
@@ -25,7 +25,7 @@ class UserProfileApiService {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
       },
       body: JSON.stringify(profileData),
     });
@@ -42,7 +42,7 @@ class UserProfileApiService {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
       },
     });
 
@@ -58,7 +58,7 @@ class UserProfileApiService {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
       },
     });
 
@@ -75,7 +75,7 @@ class UserProfileApiService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
         body: JSON.stringify({
           eventType,

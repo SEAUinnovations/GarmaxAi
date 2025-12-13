@@ -36,27 +36,45 @@ export function initializeTryonWebSocket(server: HttpServer): void {
     ws.on("message", async (data: Buffer) => {
       try {
         const message: WebSocketMessage = JSON.parse(data.toString());
+        logger.info(`WebSocket message received: ${message.action} for session ${message.sessionId}`, "TryonWebSocket");
 
         if (message.action === "subscribe") {
-          // Verify session exists (optional security check)
-          const session = await storage.getTryonSession?.(message.sessionId);
-          if (session) {
-            jobStatusService.subscribeToSession(message.sessionId, ws);
-            ws.send(JSON.stringify({ 
-              type: "subscribed", 
-              sessionId: message.sessionId 
-            }));
-          } else {
+          // Verify session exists (security check)
+          try {
+            const session = await storage.getTryonSession(message.sessionId);
+            if (session) {
+              jobStatusService.subscribeToSession(message.sessionId, ws);
+              logger.info(`Client subscribed to session ${message.sessionId}`, "TryonWebSocket");
+              ws.send(JSON.stringify({ 
+                type: "subscribed", 
+                sessionId: message.sessionId 
+              }));
+            } else {
+              logger.warn(`Session not found: ${message.sessionId}`, "TryonWebSocket");
+              ws.send(JSON.stringify({ 
+                type: "error", 
+                message: "Session not found" 
+              }));
+            }
+          } catch (error) {
+            logger.error(`Error fetching session ${message.sessionId}: ${error}`, "TryonWebSocket");
             ws.send(JSON.stringify({ 
               type: "error", 
-              message: "Session not found" 
+              message: "Error verifying session" 
             }));
           }
         } else if (message.action === "unsubscribe") {
           jobStatusService.unsubscribeFromSession(message.sessionId, ws);
+          logger.info(`Client unsubscribed from session ${message.sessionId}`, "TryonWebSocket");
           ws.send(JSON.stringify({ 
             type: "unsubscribed", 
             sessionId: message.sessionId 
+          }));
+        } else {
+          logger.warn(`Unknown WebSocket action: ${message.action}`, "TryonWebSocket");
+          ws.send(JSON.stringify({ 
+            type: "error", 
+            message: "Unknown action" 
           }));
         }
       } catch (error) {
