@@ -8,7 +8,8 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute, PublicRoute } from "./components/ProtectedRoute";
 import NotFound from "./pages/not-found";
 import Home from "./pages/Home";
-import Dashboard from "./pages/Dashboard";
+import Dashboard from "./pages/DashboardNew";
+import Generate from "./pages/Generate";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import VirtualTryonStudio from "./pages/VirtualTryonStudio";
@@ -48,6 +49,16 @@ function Router() {
       
       {/* Protected routes - require authentication */}
       <Route path="/dashboard">
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/generate">
+        <ProtectedRoute>
+          <Generate />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/history">
         <ProtectedRoute>
           <Dashboard />
         </ProtectedRoute>

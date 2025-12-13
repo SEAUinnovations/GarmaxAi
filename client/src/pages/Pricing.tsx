@@ -102,20 +102,20 @@ export default function Pricing() {
     },
   ];
 
-  const [, setLocation] = useLocation();
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  const [loadingCredits, setLoadingCredits] = useState<number | null>(null);
-
   const handleSubscribe = async (planId: string) => {
     if (planId === 'free') return;
     
-    setIsLoading(true);
     setLoadingPlan(planId);
     
     try {
-      const token = localStorage.getItem('id_token');
+      const token = localStorage.getItem('auth_token');
+      
       if (!token) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to subscribe to a plan.",
+          variant: "destructive",
+        });
         setLocation('/login');
         return;
       }
@@ -133,28 +133,45 @@ export default function Pricing() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create checkout session');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create checkout session');
       }
 
       const { url } = await response.json();
+      
+      if (!url) {
+        throw new Error('No checkout URL received');
+      }
       
       // Redirect to Stripe checkout
       window.location.href = url;
     } catch (error) {
       console.error('Checkout error:', error);
-      alert('Failed to start checkout. Please try again.');
-      setIsLoading(false);
+      
+      toast({
+        title: "Checkout Failed",
+        description: error instanceof Error 
+          ? error.message 
+          : "Unable to start checkout. Please try again or contact support.",
+        variant: "destructive",
+      });
+      
       setLoadingPlan(null);
     }
   };
 
   const handleBuyCredits = async (credits: number) => {
-    setIsLoading(true);
     setLoadingCredits(credits);
     
     try {
-      const token = localStorage.getItem('id_token');
+      const token = localStorage.getItem('auth_token');
+      
       if (!token) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to purchase credits.",
+          variant: "destructive",
+        });
         setLocation('/login');
         return;
       }
@@ -169,20 +186,34 @@ export default function Pricing() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create checkout session');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create checkout session');
       }
 
       const { url } = await response.json();
+      
+      if (!url) {
+        throw new Error('No checkout URL received');
+      }
       
       // Redirect to Stripe checkout
       window.location.href = url;
     } catch (error) {
       console.error('Checkout error:', error);
-      alert('Failed to start checkout. Please try again.');
-      setIsLoading(false);
+      
+      toast({
+        title: "Purchase Failed",
+        description: error instanceof Error 
+          ? error.message 
+          : "Unable to process credit purchase. Please try again or contact support.",
+        variant: "destructive",
+      });
+      
       setLoadingCredits(null);
     }
   };
+
+  const isAnyLoading = loadingPlan !== null || loadingCredits !== null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -241,6 +272,7 @@ export default function Pricing() {
           {subscriptionPlans.map((plan) => {
             const Icon = plan.icon;
             const price = billingCycle === "monthly" ? plan.price.monthly : plan.price.annual;
+            const isPlanLoading = loadingPlan === plan.id;
 
             return (
               <Card
@@ -319,9 +351,16 @@ export default function Pricing() {
                     variant={plan.id === "free" ? "outline" : "default"}
                     size="lg"
                     onClick={() => handleSubscribe(plan.id)}
-                    disabled={plan.id === "free" || isLoading}
+                    disabled={plan.id === "free" || isAnyLoading}
                   >
-                    {loadingPlan === plan.id ? "Loading..." : plan.cta}
+                    {isPlanLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      plan.cta
+                    )}
                   </Button>
                 </CardContent>
               </Card>
@@ -340,8 +379,11 @@ export default function Pricing() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-          {creditPacks.map((pack) => (
-            <Card
+          {creditPacks.map((pack) => {
+            const isPackLoading = loadingCredits === pack.credits;
+
+            return (
+              <Card
               key={pack.credits}
               className={cn(
                 "border-white/10 bg-card transition-all",
@@ -380,16 +422,22 @@ export default function Pricing() {
                   className="w-full"
                   variant={pack.popular ? "default" : "outline"}
                   onClick={() => handleBuyCredits(pack.credits)}
-                  disabled={isLoading}
+                  disabled={isAnyLoading}
                 >
-                  {loadingCredits === pack.credits ? "Loading..." : "Buy Credits"}
+                  {isPackLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    "Buy Credits"
+                  )}
                 </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <div className="text-center mt-12">
+                </CardContent>
+              </Card>
+            );
+          })}
+          </div>        <div className="text-center mt-12">
           <p className="text-sm text-muted-foreground">
             Credits never expire • Refund guarantee on failed renders
           </p>
