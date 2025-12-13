@@ -2,13 +2,62 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, ArrowRight } from "lucide-react";
+import { CheckCircle, ArrowRight, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function PaymentSuccess() {
   const [, setLocation] = useLocation();
   const [countdown, setCountdown] = useState(5);
+  const [isVerifying, setIsVerifying] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
+    // Verify payment session
+    const verifyPayment = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get('session_id');
+
+      if (!sessionId) {
+        toast({
+          title: "Invalid Session",
+          description: "No payment session found. Redirecting to pricing...",
+          variant: "destructive",
+        });
+        setTimeout(() => setLocation('/pricing'), 2000);
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('auth_token');
+        // Just verify the session exists - webhook will handle credit/subscription activation
+        // This prevents users from manually navigating to success page
+        const response = await fetch(`/api/payments/verify-session?session_id=${sessionId}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        });
+
+        if (!response.ok) {
+          throw new Error('Session verification failed');
+        }
+
+        setIsVerifying(false);
+      } catch (error) {
+        console.error('Payment verification error:', error);
+        toast({
+          title: "Verification Failed",
+          description: "Could not verify payment. Please contact support if you were charged.",
+          variant: "destructive",
+        });
+        setTimeout(() => setLocation('/dashboard'), 3000);
+      }
+    };
+
+    verifyPayment();
+  }, [setLocation, toast]);
+
+  useEffect(() => {
+    // Only start countdown after verification
+    if (isVerifying) return;
+
     // Countdown timer
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -22,18 +71,26 @@ export default function PaymentSuccess() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [setLocation]);
+  }, [setLocation, isVerifying]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
       <Card className="max-w-md w-full border-white/10 bg-card">
         <CardHeader className="text-center pb-4">
           <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
-            <CheckCircle className="w-10 h-10 text-green-500" />
+            {isVerifying ? (
+              <Loader2 className="w-10 h-10 text-green-500 animate-spin" />
+            ) : (
+              <CheckCircle className="w-10 h-10 text-green-500" />
+            )}
           </div>
-          <CardTitle className="text-3xl font-bold">Payment Successful!</CardTitle>
+          <CardTitle className="text-3xl font-bold">
+            {isVerifying ? "Verifying Payment..." : "Payment Successful!"}
+          </CardTitle>
           <CardDescription>
-            Thank you for your purchase. Your account has been updated.
+            {isVerifying 
+              ? "Please wait while we confirm your payment..."
+              : "Thank you for your purchase. Your account has been updated."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

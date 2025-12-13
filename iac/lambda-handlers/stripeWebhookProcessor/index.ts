@@ -4,6 +4,7 @@ import { drizzle } from 'drizzle-orm/mysql2';
 import mysql from 'mysql2/promise';
 import { eq } from 'drizzle-orm';
 import { mysqlTable, varchar, int, timestamp, decimal, text } from 'drizzle-orm/mysql-core';
+import { randomUUID } from 'crypto';
 
 // Define only the tables we need for this Lambda
 const users = mysqlTable('users', {
@@ -20,6 +21,7 @@ const paymentTransactions = mysqlTable('payment_transactions', {
   amount: decimal('amount', { precision: 10, scale: 2 }),
   creditsAmount: int('credits_amount'),
   stripePaymentId: varchar('stripe_payment_id', { length: 255 }),
+  stripeSessionId: varchar('stripe_session_id', { length: 255 }),
   status: varchar('status', { length: 20 }).notNull(),
   createdAt: timestamp('created_at').notNull(),
 });
@@ -107,6 +109,18 @@ async function handleCheckoutCompleted(db: any, session: Stripe.Checkout.Session
   
   console.log(`Processing checkout completion for user ${userId}`);
   
+  // IDEMPOTENCY CHECK: Check if this session has already been processed
+  const existingTransaction = await db
+    .select()
+    .from(paymentTransactions)
+    .where(eq(paymentTransactions.stripeSessionId, session.id))
+    .limit(1);
+  
+  if (existingTransaction.length > 0) {
+    console.log(`Session ${session.id} already processed, skipping to prevent duplicate credits`);
+    return;
+  }
+  
   // Check if this is a credit purchase or subscription
   if (session.mode === 'payment' && session.metadata?.type === 'credit_purchase') {
     // Handle one-time credit purchase
@@ -136,17 +150,15 @@ async function handleCheckoutCompleted(db: any, session: Stripe.Checkout.Session
     
     // Record transaction
     await db.insert(paymentTransactions).values({
+      id: randomUUID(),
       userId,
       type: 'credit_purchase',
       amount: (session.amount_total || 0) / 100,
       creditsAmount: totalCredits,
       stripePaymentId: session.payment_intent as string,
+      stripeSessionId: session.id,
       status: 'completed',
-      metadata: JSON.stringify({
-        credits,
-        bonusCredits,
-        sessionId: session.id,
-      }),
+      createdAt: new Date(),
     });
     
     console.log(`Added ${totalCredits} credits to user ${userId}`);
@@ -168,17 +180,14 @@ async function handleCheckoutCompleted(db: any, session: Stripe.Checkout.Session
     
     // Record transaction
     await db.insert(paymentTransactions).values({
+      id: randomUUID(),
       userId,
       type: 'subscription',
       amount: (session.amount_total || 0) / 100,
       stripePaymentId: session.payment_intent as string,
+      stripeSessionId: session.id,
       status: 'completed',
-      metadata: JSON.stringify({
-        planId: session.metadata?.planId,
-        billingCycle: session.metadata?.billingCycle,
-        subscriptionId,
-        sessionId: session.id,
-      }),
+      createdAt: new Date(),
     });
   }
 }

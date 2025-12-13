@@ -211,12 +211,12 @@ jobs:
       - run:
           name: Run Snyk test
           command: |
-            npx snyk test --severity-threshold=high || true
+            npx snyk test --severity-threshold=high
             echo "Snyk scan complete"
       - run:
           name: Monitor project with Snyk
           command: |
-            npx snyk monitor || true
+            npx snyk monitor
             echo "Snyk monitoring configured"
 
   # Security scan - npm audit for backend
@@ -229,13 +229,13 @@ jobs:
       - run:
           name: Run npm audit on backend dependencies
           command: |
-            npm audit --audit-level=high || true
+            npm audit --audit-level=high
             echo "Backend npm audit complete"
       - run:
           name: Run npm audit on frontend dependencies
           command: |
             cd client
-            npm audit --audit-level=high || true
+            npm audit --audit-level=high
             echo "Frontend npm audit complete"
 
   # Build and push Docker images

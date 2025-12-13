@@ -101,6 +101,8 @@ const STAGE = process.env.STAGE || 'dev';
 // Database imports for photo/avatar lookups
 // Using mysql2/promise for direct database queries without Drizzle ORM in Lambda
 import mysql from 'mysql2/promise';
+import { ECSClient, RunTaskCommand } from '@aws-sdk/client-ecs';
+import { CloudWatchClient, PutMetricDataCommand } from '@aws-sdk/client-cloudwatch';
 
 // Cache database connection for Lambda warm starts
 let dbConnection: mysql.Connection | null = null;
@@ -511,19 +513,19 @@ async function processPhotosWithSMPL(inputs: any, sessionId: string, config: any
 async function launchEcsSmplTask(sessionId: string, inputs: TryonSessionEvent['inputs']): Promise<any> {
   console.log(`🚢 Launching ECS task for session: ${sessionId}`);
   
-  const ecs = new (require('aws-sdk').ECS)({ region: process.env.AWS_REGION });
+  const ecs = new ECSClient({ region: process.env.AWS_REGION });
   
   const taskParams = {
     cluster: process.env.ECS_CLUSTER_NAME,
     taskDefinition: process.env.ECS_TASK_DEFINITION_ARN,
-    launchType: 'FARGATE',
+    launchType: 'FARGATE' as const,
     
     // Use private subnets for security
     networkConfiguration: {
       awsvpcConfiguration: {
         subnets: (process.env.ECS_SUBNET_IDS || '').split(',').filter(Boolean),
         securityGroups: [], // Will use default security group from task definition
-        assignPublicIp: 'DISABLED', // Private subnets don't need public IPs
+        assignPublicIp: 'DISABLED' as const, // Private subnets don't need public IPs
       },
     },
     
@@ -552,7 +554,7 @@ async function launchEcsSmplTask(sessionId: string, inputs: TryonSessionEvent['i
   };
   
   try {
-    const result = await ecs.runTask(taskParams).promise();
+    const result = await ecs.send(new RunTaskCommand(taskParams));
     
     if (!result.tasks || result.tasks.length === 0) {
       throw new Error('Failed to launch ECS task - no tasks created');
@@ -598,9 +600,9 @@ async function sendCustomMetric(
   dimensions: Record<string, string>
 ): Promise<void> {
   try {
-    const cloudwatch = new (require('aws-sdk').CloudWatch)({ region: process.env.AWS_REGION });
+    const cloudwatch = new CloudWatchClient({ region: process.env.AWS_REGION });
     
-    await cloudwatch.putMetricData({
+    await cloudwatch.send(new PutMetricDataCommand({
       Namespace: 'GarmaxAi/TryOn',
       MetricData: [{
         MetricName: metricName,
@@ -609,7 +611,7 @@ async function sendCustomMetric(
         Dimensions: Object.entries(dimensions).map(([Name, Value]) => ({ Name, Value })),
         Timestamp: new Date(),
       }],
-    }).promise();
+    }));
     
     console.log(`📊 Sent metric: ${metricName} = ${value}`);
   } catch (error) {
