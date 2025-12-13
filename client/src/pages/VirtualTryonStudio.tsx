@@ -56,7 +56,8 @@ export default function VirtualTryonStudio() {
   const [selectedPhoto, setSelectedPhoto] = useState<UserPhoto | null>(null);
   const [selectedGarments, setSelectedGarments] = useState<string[]>([]);
   const [wardrobe, setWardrobe] = useState<Garment[]>([]);
-  const [photoLimit, setPhotoLimit] = useState({ current: 0, limit: 3 });
+  const [photoLimit, setPhotoLimit] = useState({ current: 0, limit: 0 });
+  const [tryonQuota, setTryonQuota] = useState({ used: 0, limit: 0, remaining: 0 });
   const [showPhotoUploader, setShowPhotoUploader] = useState(false);
   const [showGarmentUploader, setShowGarmentUploader] = useState(false);
   const [showProcessingModal, setShowProcessingModal] = useState(false);
@@ -259,6 +260,75 @@ export default function VirtualTryonStudio() {
       console.error('Failed to load session history:', error);
     }
   };
+
+  const loadUserQuotas = async () => {
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch("/api/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        
+        // Set photo upload limits based on subscription tier
+        const photoLimits = {
+          'free': 3,
+          'studio': 10,
+          'pro': 50
+        };
+        
+        // Set try-on quotas based on subscription tier
+        const tryonQuotas = {
+          'free': 5,
+          'studio': 100,
+          'pro': 999999 // Unlimited
+        };
+        
+        const tier = userData.subscriptionTier || 'free';
+        
+        // Fetch current photo count
+        const photosResponse = await fetch('/api/tryon/photos', {
+          credentials: 'include',
+        });
+        const photosData = await photosResponse.json();
+        const photoCount = photosData.photos?.length || 0;
+        
+        setPhotoLimit({ 
+          current: photoCount, 
+          limit: photoLimits[tier as keyof typeof photoLimits] || photoLimits.free 
+        });
+        
+        // Fetch current try-on usage for the month
+        const usageResponse = await fetch('/api/tryon/quota', {
+          credentials: 'include',
+        });
+        
+        if (usageResponse.ok) {
+          const usageData = await usageResponse.json();
+          const quotaLimit = tryonQuotas[tier as keyof typeof tryonQuotas] || tryonQuotas.free;
+          setTryonQuota({
+            used: usageData.used || 0,
+            limit: quotaLimit,
+            remaining: Math.max(0, quotaLimit - (usageData.used || 0))
+          });
+        } else {
+          // Fallback if quota endpoint doesn't exist yet
+          const quotaLimit = tryonQuotas[tier as keyof typeof tryonQuotas] || tryonQuotas.free;
+          setTryonQuota({
+            used: 0,
+            limit: quotaLimit,
+            remaining: quotaLimit
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load user quotas:', error);
+      // Set minimal default quotas on error
+      setPhotoLimit({ current: 0, limit: 3 });
+      setTryonQuota({ used: 0, limit: 5, remaining: 5 });
+    }
+  };
         
   const handlePhotoUpload = async (file: File, type: 'front' | 'side' | 'full-body') => {
     try {
@@ -369,6 +439,15 @@ export default function VirtualTryonStudio() {
       const session: TryonSession = await response.json();
       setCurrentSession(session);
       setShowProcessingModal(true);
+      
+      // Update local quota count
+      if (tryonQuota.remaining > 0) {
+        setTryonQuota(prev => ({
+          ...prev,
+          used: prev.used + 1,
+          remaining: Math.max(0, prev.remaining - 1)
+        }));
+      }
 
       // Subscribe to WebSocket updates for this session
       // Backend will broadcast status changes: queued → processing → rendering → completed
@@ -721,19 +800,33 @@ export default function VirtualTryonStudio() {
             </Card>
 
             {/* Action Buttons */}
-            <div className="mt-4 flex gap-3">
+            <div className="mt-4 flex flex-col gap-3">
               <Button
                 size="lg"
                 className="flex-1 bg-accent text-accent-foreground hover:bg-white hover:text-black"
-                disabled={!selectedPhoto || selectedGarments.length === 0 || (!!currentSession && ['processing', 'pose-estimation', 'smpl-generation', 'guidance-creation', 'ai-rendering', 'finalizing'].includes(currentSession.status))}
+                disabled={
+                  !selectedPhoto || 
+                  selectedGarments.length === 0 || 
+                  (tryonQuota.remaining === 0 && (user?.creditsRemaining || 0) === 0) ||
+                  (!!currentSession && ['processing', 'pose-estimation', 'smpl-generation', 'guidance-creation', 'ai-rendering', 'finalizing'].includes(currentSession.status))
+                }
                 onClick={handleStartTryon}
               >
                 <Sparkles size={18} className="mr-2" />
                 {currentSession && ['queued', 'processing', 'rendering'].includes(currentSession.status) 
                   ? 'Processing...' 
-                  : 'Generate Try-On'
+                  : tryonQuota.remaining === 0 && (user?.creditsRemaining || 0) === 0
+                    ? 'No Try-Ons Remaining'
+                    : 'Generate Try-On'
                 }
               </Button>
+              {tryonQuota.remaining === 0 && (user?.creditsRemaining || 0) === 0 && (
+                <p className="text-xs text-center text-muted-foreground">
+                  <Link href="/pricing" className="text-accent hover:underline">
+                    Upgrade your plan
+                  </Link> or purchase credits to continue
+                </p>
+              )}
               
 
             </div>
@@ -838,6 +931,16 @@ export default function VirtualTryonStudio() {
         </div>
       )}
 
+      {/* Photo Uploader Modal */}
+      {showPhotoUploader && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <PhotoUploader
+            onUpload={handlePhotoUpload}
+            onClose={() => setShowPhotoUploader(false)}
+            maxFiles={photoLimit.limit - photoLimit.current}
+          />
+        </div>
+      )}
 
     </div>
   );

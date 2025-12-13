@@ -4,8 +4,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Sparkles, Coins, Download } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Sparkles, Coins, Download, Loader2, ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { UserMenu } from "@/components/UserMenu";
+import { useToast } from "@/hooks/use-toast";
 
 // Assets
 import port1 from "@assets/generated_images/commercial_fashion_portrait_1.png";
@@ -13,9 +17,9 @@ import port2 from "@assets/generated_images/commercial_fashion_portrait_2.png";
 import port3 from "@assets/generated_images/commercial_fashion_portrait_3.png";
 
 export default function Generate() {
+  const { user, refreshUser } = useAuth();
+  const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [credits, setCredits] = useState(0);
-  const [isOnTrial, setIsOnTrial] = useState(false);
   const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
 
@@ -26,25 +30,8 @@ export default function Generate() {
   const [quality, setQuality] = useState("medium");
   const [hdMode, setHdMode] = useState(false);
 
-  // Fetch user data on mount
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const token = localStorage.getItem("auth_token");
-        const response = await fetch("/api/auth/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const userData = await response.json();
-          setCredits(userData.creditsRemaining || 0);
-          setIsOnTrial(userData.trialStatus === 'active');
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      }
-    };
-    fetchUserData();
-  }, []);
+  const credits = user?.creditsRemaining || 0;
+  const isOnTrial = user?.trialStatus === 'active';
 
   // Calculate credit cost based on quality and HD mode
   const calculateCreditCost = (): number => {
@@ -77,17 +64,13 @@ export default function Generate() {
           setIsGenerating(false);
           setCurrentGenerationId(null);
           clearInterval(pollInterval);
-          // Refresh user credits after generation completes
-          const userResponse = await fetch("/api/auth/me", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (userResponse.ok) {
-            const userData = await userResponse.json();
-            setCredits(userData.creditsRemaining || 0);
-          }
         } else if (data.generation.status === "failed") {
           console.error("Generation failed");
-          alert("Generation failed. Please try again.");
+          toast({
+            title: "Generation Failed",
+            description: "Your generation failed. Please try again.",
+            variant: "destructive",
+          });
           setIsGenerating(false);
           setCurrentGenerationId(null);
           clearInterval(pollInterval);
@@ -102,14 +85,22 @@ export default function Generate() {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      alert("Please enter a prompt");
+      toast({
+        title: "Prompt Required",
+        description: "Please enter a prompt to generate your model.",
+        variant: "destructive",
+      });
       return;
     }
 
     const creditCost = calculateCreditCost();
     
     if (!isOnTrial && credits < creditCost) {
-      alert(`Insufficient credits. You need ${creditCost} credits but only have ${credits}.`);
+      toast({
+        title: "Insufficient Credits",
+        description: `You need ${creditCost} credits but only have ${credits}. Purchase more credits to continue.`,
+        variant: "destructive",
+      });
       return;
     }
 
@@ -132,15 +123,22 @@ export default function Generate() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         throw new Error(error.message || "Failed to start generation");
       }
 
       const data = await response.json();
       setCurrentGenerationId(data.id);
+      
+      // Refresh credits immediately since backend has deducted them
+      await refreshUser();
     } catch (error) {
       console.error("Error starting generation:", error);
-      alert(error instanceof Error ? error.message : "Failed to start generation");
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to start generation. Please try again.",
+        variant: "destructive",
+      });
       setIsGenerating(false);
     }
   };
@@ -159,12 +157,58 @@ export default function Generate() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error downloading image:", error);
-      alert("Failed to download image");
+      toast({
+        title: "Download Failed",
+        description: "Failed to download image. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Header */}
+      <header className="border-b border-white/10 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+          {/* Left side: Navigation */}
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft size={18} className="mr-2" />
+                Back to Dashboard
+              </Button>
+            </Link>
+            <div className="h-6 w-px bg-white/10" />
+            <div className="flex items-center gap-2">
+              <Sparkles size={20} className="text-accent" />
+              <h1 className="text-lg font-serif font-bold">AI Model Generator</h1>
+            </div>
+          </div>
+
+          {/* Right side: Credits + UserMenu */}
+          <div className="flex items-center gap-4">
+            {!isOnTrial && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
+                <Coins size={16} className="text-accent" />
+                <span className="text-sm">
+                  <span className="font-bold text-foreground">{credits}</span>
+                  <span className="text-muted-foreground ml-1">credits</span>
+                </span>
+              </div>
+            )}
+            {isOnTrial && (
+              <Badge variant="secondary" className="text-xs">
+                Trial Active
+              </Badge>
+            )}
+            <UserMenu />
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Controls */}
       <div className="lg:col-span-1 space-y-6 p-6 rounded-xl border border-white/10 bg-card/30 h-fit">
         <div className="space-y-3">
@@ -231,7 +275,10 @@ export default function Generate() {
           disabled={isGenerating || !prompt.trim() || (!isOnTrial && credits < calculateCreditCost())}
         >
           {isGenerating ? (
-            <>Generating <span className="animate-pulse ml-1">...</span></>
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Generating...
+            </>
           ) : (
             <>
               Generate Model
@@ -313,6 +360,8 @@ export default function Generate() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
         </div>
       </div>
     </div>

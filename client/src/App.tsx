@@ -64,7 +64,7 @@ function Router() {
         </ProtectedRoute>
       </Route>
       <Route path="/virtual-tryon">
-        <ProtectedRoute requiresTrialActive={true}>
+        <ProtectedRoute>
           <VirtualTryonStudio />
         </ProtectedRoute>
       </Route>

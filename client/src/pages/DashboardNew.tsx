@@ -7,9 +7,11 @@ import { Camera, Grid, LayoutDashboard, Settings, LogOut, Plus, History, Sparkle
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/UserMenu";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Dashboard() {
-  const [userPlan] = useState<"free" | "studio" | "pro">("free");
+  const { user } = useAuth();
+  const userPlan = user?.subscriptionTier || "free";
   const [credits, setCredits] = useState(0);
   const [tryonQuota] = useState({ used: 0, limit: 0 });
   const [trialStatus, setTrialStatus] = useState<string | null>(null);
@@ -177,7 +179,7 @@ export default function Dashboard() {
             </Card>
 
             <Card className="border-blue-500/50 bg-gradient-to-br from-blue-500/20 to-blue-500/5 hover:border-blue-500 transition-colors cursor-pointer">
-              <Link href={userPlan === "free" ? "/pricing" : "/virtual-tryon"}>
+              <Link href="/virtual-tryon">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
@@ -190,7 +192,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <Button variant="secondary" className="w-full">
-                    {userPlan === "free" ? "Unlock Feature" : "Launch Studio"} <ArrowRight size={16} className="ml-2" />
+                    {userPlan === "free" ? "Try Free Quota" : "Launch Studio"} <ArrowRight size={16} className="ml-2" />
                   </Button>
                 </CardContent>
               </Link>

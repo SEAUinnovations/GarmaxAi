@@ -327,3 +327,67 @@ tryonRouter.post("/session/:sessionId/cancel", cancelTryonSession);
  *         description: Not authenticated
  */
 tryonRouter.get("/session/:sessionId/status", getSessionStatus);
+
+/**
+ * @swagger
+ * /tryon/quota:
+ *   get:
+ *     tags: [Try-On Sessions]
+ *     summary: Get user's try-on quota usage
+ *     description: Returns the number of try-ons used in the current billing period
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Quota usage information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 used:
+ *                   type: integer
+ *                   description: Number of try-ons used this month
+ *                   example: 3
+ *                 period:
+ *                   type: string
+ *                   description: Billing period type
+ *                   example: monthly
+ *                 periodStart:
+ *                   type: string
+ *                   format: date-time
+ *                   description: Start of current billing period
+ *                   example: 2025-12-01T00:00:00.000Z
+ *       401:
+ *         description: Not authenticated
+ */
+tryonRouter.get("/quota", async (req, res) => {
+  try {
+    const userId = (req as any).userId;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Import storage at function level to avoid circular dependencies
+    const { storage } = await import("../storage");
+
+    // Get sessions created this month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const sessions = await storage.getUserTryonSessions?.(userId, 1000);
+    const monthSessions = sessions?.filter(s => 
+      new Date(s.createdAt) >= startOfMonth
+    ) || [];
+
+    res.json({
+      used: monthSessions.length,
+      period: 'monthly',
+      periodStart: startOfMonth.toISOString()
+    });
+  } catch (error) {
+    console.error('Get quota error:', error);
+    res.status(500).json({ error: "Failed to fetch quota" });
+  }
+});
