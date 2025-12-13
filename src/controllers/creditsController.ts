@@ -182,3 +182,67 @@ export async function createCreditPurchase(req: AuthenticatedRequest, res: Respo
     res.status(500).json({ error: "Failed to create checkout session" });
   }
 }
+
+/**
+ * @description Grant credits to test user without Stripe (beta internal testing only)
+ * @param req - Express request object
+ * @param res - Express response object
+ * 
+ * TODO: BETA - Remove after QA/DEV environments are deployed
+ * This endpoint allows bettstahlik@gmail.com to purchase credits instantly without Stripe
+ * during internal testing in production. Once proper QA/DEV environments exist, remove this.
+ */
+export async function grantTestUserCredits(req: AuthenticatedRequest, res: Response) {
+  try {
+    const userId = (req as any).userId;
+    const userEmail = (req as any).userEmail;
+    const { credits } = req.body;
+
+    // Security: Only allow for specific test user email
+    if (userEmail !== 'bettstahlik@gmail.com') {
+      res.status(403).json({ error: "This endpoint is only available for internal test user" });
+      return;
+    }
+
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    // Validate credit pack
+    const pack = CREDIT_PACKS[credits as keyof typeof CREDIT_PACKS];
+    if (!pack) {
+      res.status(400).json({ 
+        error: "Invalid credit pack. Choose 30, 100, or 500 credits." 
+      });
+      return;
+    }
+
+    // Grant credits immediately (base + bonus)
+    const totalCredits = credits + pack.bonus;
+    await creditsService.addCredits(userId, totalCredits);
+
+    const updatedCredits = await creditsService.getCredits(userId);
+    const stage = process.env.STAGE?.toUpperCase() || 'LOCAL';
+
+    logger.info(
+      `[TEST USER - BETA${stage === 'PROD' ? ' - PROD INTERNAL TESTING' : ''}] Granted ${totalCredits} credits to ${userEmail} (${credits} + ${pack.bonus} bonus). New balance: ${updatedCredits.available}`,
+      "creditsController"
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Credits granted successfully (test user bypass)",
+      creditsAdded: totalCredits,
+      breakdown: {
+        base: credits,
+        bonus: pack.bonus,
+        total: totalCredits
+      },
+      newBalance: updatedCredits.available
+    });
+  } catch (error) {
+    logger.error(`Grant test user credits error: ${error}`, "creditsController");
+    res.status(500).json({ error: "Failed to grant credits" });
+  }
+}

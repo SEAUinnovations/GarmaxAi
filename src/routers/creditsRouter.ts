@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as creditsController from "../controllers/creditsController";
+import { testUserStripeBypass } from "../middleware/testUserStripeBypass";
 
 const router = Router();
 
@@ -209,6 +210,64 @@ router.get("/check", creditsController.checkCredits);
  *       401:
  *         description: Not authenticated
  */
-router.post("/purchase", creditsController.createCreditPurchase);
+router.post("/purchase", testUserStripeBypass, creditsController.createCreditPurchase);
+
+/**
+ * @swagger
+ * /credits/test-grant:
+ *   post:
+ *     tags: [Credits]
+ *     summary: Grant credits to test user (beta internal testing only)
+ *     description: |
+ *       Instantly grants credits to bettstahlik@gmail.com without Stripe checkout.
+ *       TODO: BETA - Remove after QA/DEV environments are deployed.
+ *       Only works for internal test user during production beta testing.
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [credits]
+ *             properties:
+ *               credits:
+ *                 type: integer
+ *                 description: Number of credits to grant (30, 100, or 500)
+ *                 example: 100
+ *     responses:
+ *       200:
+ *         description: Credits granted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 creditsAdded:
+ *                   type: integer
+ *                 breakdown:
+ *                   type: object
+ *                   properties:
+ *                     base:
+ *                       type: integer
+ *                     bonus:
+ *                       type: integer
+ *                     total:
+ *                       type: integer
+ *                 newBalance:
+ *                   type: integer
+ *       400:
+ *         description: Invalid credit pack
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Only available for test user
+ */
+router.post("/test-grant", creditsController.grantTestUserCredits);
 
 export default router;

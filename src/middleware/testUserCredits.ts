@@ -10,19 +10,14 @@ const TOP_UP_AMOUNT = 10000;
  * Middleware to ensure test user always has sufficient credits for end-to-end testing
  * This allows seamless testing of model generation workflows without manual credit management
  * 
- * Only runs in development and QA environments to prevent production interference
+ * TODO: BETA - Remove after QA/DEV environments are deployed
+ * Currently enabled in ALL environments (including PROD) for internal testing during beta phase
  */
 export async function ensureTestUserCredits(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
-  // Only enable in non-production environments
-  const stage = process.env.STAGE?.toUpperCase();
-  if (stage === 'PROD') {
-    return next();
-  }
-
   try {
     const userEmail = (req as any).userEmail;
     const userId = (req as any).userId;
@@ -33,8 +28,9 @@ export async function ensureTestUserCredits(
 
       if (user && user.credits < MIN_CREDIT_THRESHOLD) {
         await storage.updateUserCredits(user.id, TOP_UP_AMOUNT);
+        const stage = process.env.STAGE?.toUpperCase() || 'LOCAL';
         logger.info(
-          `[TEST USER] Auto-topped up credits for ${TEST_USER_EMAIL}: ${user.credits} → ${TOP_UP_AMOUNT}`,
+          `[TEST USER - BETA${stage === 'PROD' ? ' - PROD INTERNAL TESTING' : ''}] Auto-topped up credits for ${TEST_USER_EMAIL}: ${user.credits} → ${TOP_UP_AMOUNT}`,
           'testUserCredits'
         );
       }

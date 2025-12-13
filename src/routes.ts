@@ -14,6 +14,7 @@ import { requestLogger } from "./middleware/requestLogger";
 import { setUser, requireAuth } from "./middleware/auth";
 import { errorHandler, notFound } from "./middleware/errorHandler";
 import { ensureTestUserCredits } from "./middleware/testUserCredits";
+import { testUserStripeBypass } from "./middleware/testUserStripeBypass";
 import { initializeTryonWebSocket } from "./websocket/tryonWebSocket";
 import paymentsRouter from "./routers/paymentsRouter";
 import { healthRouter } from "./routers/healthRouter";
