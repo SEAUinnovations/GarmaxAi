@@ -77,6 +77,32 @@ export default function Account() {
     setLocation('/login');
   };
 
+  // Show loading state while fetching user data
+  if (isLoadingUser) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading account...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if user data failed to load
+  if (!userData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">Unable to load account data</p>
+          <Button onClick={() => setLocation('/login')}>
+            Return to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const [subscription] = useState({
     plan: "Studio",
     status: "active",

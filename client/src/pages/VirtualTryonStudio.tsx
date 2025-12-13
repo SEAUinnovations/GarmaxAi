@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Camera, ArrowLeft, Plus, Sparkles, Upload, Trash2, X, User, Image as ImageIcon, Check } from "lucide-react";
+import { Camera, ArrowLeft, Plus, Sparkles, Upload, Trash2, X, User, Image as ImageIcon, Check, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import GarmentUploader from "@/components/tryon/GarmentUploader";
 import PhotoUploader from "@/components/tryon/PhotoUploader";
@@ -10,6 +10,8 @@ import TryonPreview from "@/components/tryon/TryonPreview";
 import ProcessingModal from "@/components/tryon/ProcessingModal";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { UserMenu } from "@/components/UserMenu";
 
 export interface UserPhoto {
   id: string;
@@ -49,6 +51,7 @@ export interface TryonSession {
 }
 
 export default function VirtualTryonStudio() {
+  const { user } = useAuth();
   const [userPhotos, setUserPhotos] = useState<UserPhoto[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<UserPhoto | null>(null);
   const [selectedGarments, setSelectedGarments] = useState<string[]>([]);
@@ -468,10 +471,15 @@ export default function VirtualTryonStudio() {
               <Badge variant="secondary" className="text-xs">Photo-First</Badge>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">
-              Credits: <span className="font-bold text-foreground">45</span>
-            </span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
+              <Coins size={16} className="text-accent" />
+              <span className="text-sm">
+                <span className="font-bold text-foreground">{user?.creditsRemaining || 0}</span>
+                <span className="text-muted-foreground ml-1">credits</span>
+              </span>
+            </div>
+            <UserMenu />
           </div>
         </div>
       </header>

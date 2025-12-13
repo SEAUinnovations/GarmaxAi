@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Camera, Download, Grid, LayoutDashboard, Settings, LogOut, Plus, History, User, Sparkles, CreditCard, Coins, Lock, Zap, Clock } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { UserMenu } from "@/components/UserMenu";
 
 // Assets
 import port1 from "@assets/generated_images/commercial_fashion_portrait_1.png";
@@ -244,11 +245,7 @@ export default function Dashboard() {
               </Link>
             </div>
             
-            <Link href="/account">
-              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
-                <User size={16} />
-              </div>
-            </Link>
+            <UserMenu />
           </div>
         </header>
 
