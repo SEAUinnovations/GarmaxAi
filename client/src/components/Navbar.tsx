@@ -3,10 +3,13 @@ import { Camera, Sparkles, LayoutGrid, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "@/contexts/AuthContext";
+import { UserMenu } from "@/components/UserMenu";
 
 export function Navbar() {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isAuthenticated, isLoading } = useAuth();
 
   const NavLink = ({ href, children }: { href: string; children: React.ReactNode }) => {
     const isActive = location === href;
@@ -40,16 +43,28 @@ export function Navbar() {
             Pricing
           </a>
           <div className="w-px h-4 bg-white/10 mx-2" />
-          <Link href="/login" asChild>
-            <Button variant="outline" className="border-white/20 hover:bg-white hover:text-black hover:border-white transition-all duration-300">
-              Log In
-            </Button>
-          </Link>
-          <Link href="/dashboard" asChild>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90 font-medium px-6">
-              Start Creating <Sparkles size={16} className="ml-2" />
-            </Button>
-          </Link>
+          
+          {/* Show user menu if authenticated, otherwise show login/signup buttons */}
+          {!isLoading && (
+            <>
+              {isAuthenticated ? (
+                <UserMenu />
+              ) : (
+                <>
+                  <Link href="/login" asChild>
+                    <Button variant="outline" className="border-white/20 hover:bg-white hover:text-black hover:border-white transition-all duration-300">
+                      Log In
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard" asChild>
+                    <Button className="bg-accent text-accent-foreground hover:bg-accent/90 font-medium px-6">
+                      Start Creating <Sparkles size={16} className="ml-2" />
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </>
+          )}
         </div>
 
         {/* Mobile Menu */}
@@ -72,11 +87,39 @@ export function Navbar() {
                   Pricing
                 </a>
                 <hr className="border-white/10" />
-                <Link href="/dashboard" asChild>
-                  <Button className="w-full bg-accent text-accent-foreground" onClick={() => setIsMobileMenuOpen(false)}>
-                    Dashboard
-                  </Button>
-                </Link>
+                
+                {/* Mobile menu - show different options based on auth state */}
+                {!isLoading && (
+                  <>
+                    {isAuthenticated ? (
+                      <>
+                        <Link href="/dashboard" asChild>
+                          <Button className="w-full bg-accent text-accent-foreground" onClick={() => setIsMobileMenuOpen(false)}>
+                            Dashboard
+                          </Button>
+                        </Link>
+                        <Link href="/account" asChild>
+                          <Button variant="outline" className="w-full border-white/20" onClick={() => setIsMobileMenuOpen(false)}>
+                            Account & Settings
+                          </Button>
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <Link href="/login" asChild>
+                          <Button variant="outline" className="w-full border-white/20" onClick={() => setIsMobileMenuOpen(false)}>
+                            Log In
+                          </Button>
+                        </Link>
+                        <Link href="/dashboard" asChild>
+                          <Button className="w-full bg-accent text-accent-foreground" onClick={() => setIsMobileMenuOpen(false)}>
+                            Start Creating
+                          </Button>
+                        </Link>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </SheetContent>
           </Sheet>

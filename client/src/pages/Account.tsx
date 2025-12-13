@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProfileEditSection } from "@/components/ProfileEditSection";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UserData {
   id: string;
@@ -34,6 +35,7 @@ interface UserData {
 
 export default function Account() {
   const [, setLocation] = useLocation();
+  const { logout } = useAuth();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [isLoadingPortal, setIsLoadingPortal] = useState(false);
@@ -41,7 +43,7 @@ export default function Account() {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const token = localStorage.getItem('id_token');
+        const token = localStorage.getItem('auth_token');
         if (!token) {
           setLocation('/login');
           return;
@@ -71,9 +73,7 @@ export default function Account() {
   }, [setLocation]);
 
   const handleLogout = () => {
-    localStorage.removeItem('id_token');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    logout();
     setLocation('/login');
   };
 
@@ -163,7 +163,7 @@ export default function Account() {
   const handleManageBilling = async () => {
     setIsLoadingPortal(true);
     try {
-      const token = localStorage.getItem('id_token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('/api/subscriptions/portal', {
         method: 'POST',
         headers: {

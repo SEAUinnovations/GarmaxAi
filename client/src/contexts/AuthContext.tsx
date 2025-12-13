@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 interface User {
   id: string;
   email: string;
+  username?: string;
   emailVerified: boolean;
   trialExpiresAt: string | null;
   trialStatus: 'active' | 'expired' | 'converted' | null;
@@ -243,7 +244,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = () => {
+    // Remove all token variants for consistent cleanup
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('id_token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('idToken');
+    localStorage.removeItem('refreshToken');
     setUser(null);
   };
 

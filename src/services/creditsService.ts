@@ -33,13 +33,16 @@ export class CreditsService {
         throw new Error("User not found");
       }
 
-      logger.info(`Fetching credits for user ${userId}`, "CreditsService");
+      // Use creditsRemaining as the primary field, fall back to credits
+      const availableCredits = user.creditsRemaining ?? user.credits ?? 0;
+
+      logger.info(`Fetching credits for user ${userId}: ${availableCredits} available`, "CreditsService");
 
       return {
         userId,
-        balance: user.credits,
+        balance: availableCredits,
         used: 0,
-        available: user.credits,
+        available: availableCredits,
       };
     } catch (error) {
       logger.error(`Failed to fetch credits: ${error}`, "CreditsService");
@@ -61,14 +64,17 @@ export class CreditsService {
         throw new Error("User not found");
       }
 
-      if (user.credits < amount) {
+      const currentCredits = user.creditsRemaining ?? user.credits ?? 0;
+
+      if (currentCredits < amount) {
         throw new Error("Insufficient credits");
       }
 
-      const updated = await storage.updateUserCredits(userId, user.credits - amount);
+      const newBalance = currentCredits - amount;
+      const updated = await storage.updateUserCredits(userId, newBalance);
 
       logger.info(
-        `Deducting ${amount} credits from user ${userId}. New balance: ${updated.credits}`,
+        `Deducted ${amount} credits from user ${userId}. Previous: ${currentCredits}, New: ${newBalance}`,
         "CreditsService"
       );
 
@@ -93,10 +99,12 @@ export class CreditsService {
         throw new Error("User not found");
       }
 
-      const updated = await storage.updateUserCredits(userId, user.credits + amount);
+      const currentCredits = user.creditsRemaining ?? user.credits ?? 0;
+      const newBalance = currentCredits + amount;
+      const updated = await storage.updateUserCredits(userId, newBalance);
 
       logger.info(
-        `Adding ${amount} credits to user ${userId}. New balance: ${updated.credits}`,
+        `Added ${amount} credits to user ${userId}. Previous: ${currentCredits}, New: ${newBalance}`,
         "CreditsService"
       );
 

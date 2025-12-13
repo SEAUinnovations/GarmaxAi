@@ -33,7 +33,16 @@ export async function createGeneration(req: AuthenticatedRequest, res: Response)
     const hasCredits = await creditsService.hasCredits(userId, creditRequired);
 
     if (!hasCredits) {
-      res.status(402).json({ error: "Insufficient credits" });
+      const userCredits = await creditsService.getCredits(userId);
+      logger.warn(
+        `User ${userId} attempted generation with insufficient credits. Required: ${creditRequired}, Available: ${userCredits.available}`,
+        "generationController"
+      );
+      res.status(402).json({ 
+        error: "Insufficient credits",
+        required: creditRequired,
+        available: userCredits.available
+      });
       return;
     }
 
