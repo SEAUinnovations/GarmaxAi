@@ -245,16 +245,21 @@ FRONTEND_URL=https://dev.garmaxai.com
 ## Known Issues & Limitations
 
 ### Current Implementation
-- **Token Validation:** JWT tokens are decoded but signatures are not verified (trusts Cognito-issued tokens)
 - **Token Revocation:** No token revocation mechanism (tokens valid until expiration)
 - **Refresh Tokens:** Refresh token flow not yet implemented (tests document expected behavior)
+
+### Security Features Implemented
+- ✅ **JWT Signature Verification:** All tokens are cryptographically verified against Cognito's JWKS
+- ✅ **Issuer Validation:** Tokens verified to come from correct Cognito User Pool
+- ✅ **Audience Validation:** Tokens validated for correct client/application
+- ✅ **Key Caching:** Public keys cached for 24 hours with automatic rotation support
+- ✅ **Algorithm Validation:** Only RS256 (Cognito standard) accepted
 
 ### Future Enhancements
 1. **Token Refresh:** Implement `/api/auth/refresh` endpoint using Cognito's `REFRESH_TOKEN_AUTH`
 2. **Token Revocation:** Add token blacklist or revocation list for immediate logout
-3. **Signature Verification:** Verify JWT signatures against Cognito JWKS
-4. **MFA Support:** Add tests for multi-factor authentication flows
-5. **Social Providers:** Extend OAuth tests for additional providers (Facebook, Apple)
+3. **MFA Support:** Add tests for multi-factor authentication flows
+4. **Social Providers:** Extend OAuth tests for additional providers (Facebook, Apple)
 
 ## Troubleshooting
 

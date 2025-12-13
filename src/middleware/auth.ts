@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
 import { logger } from '../utils/winston-logger';
 import { storage } from '../storage';
+import { verifyCognitoJWT, decodeJWTUnsafe } from '../utils/jwtVerification';
 import { 
   CognitoIdentityProviderClient, 
   GetUserCommand 
@@ -39,26 +39,8 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
   }
 
   try {
-    // Decode the access token (JWT) to get user info
-    // Access tokens from Cognito are JWTs with user claims
-    const base64Payload = token.split('.')[1];
-    if (!base64Payload) {
-      return res.status(401).json({ 
-        error: 'Invalid token format',
-        code: 'INVALID_TOKEN' 
-      });
-    }
-    
-    const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
-    
-    // Check token expiration
-    const now = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < now) {
-      return res.status(401).json({ 
-        error: 'Token has expired',
-        code: 'TOKEN_EXPIRED' 
-      });
-    }
+    // Verify JWT signature and decode payload
+    const payload = await verifyCognitoJWT(token);
     
     // Extract email from token (could be in 'email' or 'username' claim)
     const email = payload.email || payload.username;
@@ -86,12 +68,25 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
     logger.info(`Authenticated request for user: ${user.id} (${email})`, 'authMiddleware');
     next();
   } catch (error: any) {
-    logger.error(`JWT authentication error: ${error}`, 'authMiddleware');
+    logger.error(`JWT authentication error: ${error.message || error}`, 'authMiddleware');
     
-    return res.status(401).json({ 
-      error: 'Token validation failed',
-      code: 'INVALID_TOKEN' 
-    });
+    // Map error codes to appropriate HTTP responses
+    if (error.message === 'TOKEN_EXPIRED') {
+      return res.status(401).json({ 
+        error: 'Token has expired',
+        code: 'TOKEN_EXPIRED' 
+      });
+    } else if (error.message === 'INVALID_TOKEN') {
+      return res.status(401).json({ 
+        error: 'Invalid token',
+        code: 'INVALID_TOKEN' 
+      });
+    } else {
+      return res.status(401).json({ 
+        error: 'Token validation failed',
+        code: 'INVALID_TOKEN' 
+      });
+    }
   }
 }
 
@@ -108,19 +103,8 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
   }
 
   try {
-    // Decode JWT token
-    const base64Payload = token.split('.')[1];
-    if (!base64Payload) {
-      return next(); // Invalid format, continue without auth
-    }
-    
-    const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
-    
-    // Check expiration
-    const now = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < now) {
-      return next(); // Expired token, continue without auth
-    }
+    // Verify JWT signature
+    const payload = await verifyCognitoJWT(token);
     
     const email = payload.email || payload.username;
     if (email) {
